@@ -173,11 +173,24 @@ function M.show(path, opts)
                  pcall(M.state.img.clear, M.state.img)
             end
             
+            -- [FIX] Tabline Offset Compensation
+            -- When showtabline=2 or tabs>1, the global grid shifts.
+            -- image.nvim < 1.3.0 sometimes misapplies this offset, creating a 1-cell gap.
+            -- We apply y = -1 to pull it back up if a tabline is detected.
+            local showtabline = vim.o.showtabline
+            local has_tabs = #vim.api.nvim_list_tabpages() > 1
+            local has_tabline = showtabline == 2 or (showtabline == 1 and has_tabs)
+            
+            local y_offset = 0
+            if has_tabline then
+                y_offset = -1
+            end
+
             img:render({
                 width = w,
                 height = h,
                 x = 0,
-                y = 0,
+                y = y_offset,
             })
             
             M.state.img = img
