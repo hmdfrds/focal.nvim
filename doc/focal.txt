@@ -1,0 +1,137 @@
+*focal.txt*	Image Previewer for Neovim
+
+Author:  Firdaus
+License: MIT
+URL:     https://github.com/hmdfrds/focal.nvim
+
+==============================================================================
+INTRODUCTION                                    *focal-introduction*
+
+focal.nvim provides a seamless, high-performance image preview experience for
+Neovim file explorers. It focuses on "set and forget" reliability, ensuring
+that images are displayed instantly and accurately without slowing down your
+editor.
+
+Core Design Principles:
+1.  **Performance Check**: Automatically skips large files (>5MB) asynchronously
+    to prevent Editor freezes.
+2.  **Accuracy**: Calculates terminal cell geometry to render images that fill
+    the preview window 100% without distortion.
+3.  **Stability**: Uses window recycling to eliminate flicker during rapid
+    movement.
+
+Supported Explorers:
+  - neo-tree.nvim
+  - nvim-tree.lua
+  - oil.nvim
+
+==============================================================================
+REQUIREMENTS                                    *focal-requirements*
+
+- Neovim >= 0.9.0
+- image.nvim (https://github.com/3rd/image.nvim)
+- One of the supported explorers (listed above).
+
+System Dependencies (via image.nvim):
+- ImageMagick (required for image processing)
+  - MacOS: `brew install imagemagick`
+  - Linux: `sudo apt-get install imagemagick`
+
+Supported Terminals:
+- Kitty, WezTerm, Ghostty
+- Konsole, Foot, iTerm2
+- Any terminal supporting Kitty Graphics Protocol or Sixel.
+
+==============================================================================
+SETUP                                           *focal-setup*
+
+This plugin requires the `setup()` function to be called to initialize
+listeners and adapters.
+
+Standard Setup:
+>lua
+    require("focal").setup({
+        -- options...
+    })
+<
+
+Lazy.nvim Setup:
+>lua
+    {
+        "hmdfrds/focal.nvim",
+        opts = {}, -- This calls setup() with defaults
+    }
+<
+
+==============================================================================
+CONFIGURATION                                   *focal-configuration*
+
+You can configure focal by passing a table to `setup()`.
+Below are the default values with explanations:
+
+>lua
+    opts = {
+        -- Enable debug notifications (useful for troubleshooting path resolution)
+        debug = false,
+
+        -- Minimum dimensions for the preview window (in terminal cells).
+        -- Prevents the window from being too small for tiny images.
+        min_width = 10,
+        min_height = 5,
+
+        -- Maximum dimensions relative to the editor window (percentage).
+        -- 50 means the preview will take up at most half the screen.
+        max_width_pct = 50,
+        max_height_pct = 50,
+
+        -- Absolute maximum height limit (in cells) to prevent vertical overflow
+        -- even on very tall screens.
+        max_cells = 60,
+
+        -- Performance Guard: Skip images larger than this size (in MB).
+        -- Setting this too high (>50) MAY cause lags depending on CPU/Backend.
+        -- This check is performed asynchronously.
+        max_file_size_mb = 5,
+
+        -- Supported extensions. Files not matching these will be ignored.
+        extensions = { 
+            "png", "jpg", "jpeg", "webp", "gif", "bmp" 
+        },
+    }
+<
+
+==============================================================================
+COMMANDS                                        *focal-commands*
+
+:FocalDebug                                     *FocalDebug*
+    Prints internal state to `:messages`. Useful for reporting bugs.
+    Output includes:
+    - Active adapter (e.g., "neo-tree")
+    - Resolved cursor path
+    - Terminal geometry (cell size calculations)
+    - Current configuration options
+
+:checkhealth focal                              *checkhealth-focal*
+    Runs standard Neovim health checks.
+    - Verifies `image.nvim` installation.
+    - Checks required system libraries (ImageMagick).
+    - Detects installed explorer adapters.
+
+==============================================================================
+TROUBLESHOOTING                                 *focal-troubleshooting*
+
+1.  **Images are not showing up?**
+    - Run `:checkhealth focal` to ensure dependencies are met.
+    - Run `:FocalDebug` while hovering a node to see if the path is resolved.
+
+2.  **Images look distorted?**
+    - Ensure your terminal (Kitty, WezTerm, Ghostty, iTerm2) supports the
+      graphics protocol configured in `image.nvim`.
+    - Check if `termguicolors` is enabled.
+
+3.  **Editor freezes when hovering large files?**
+    - `focal.nvim` has an async size check. If it still lags, try reducing
+      `max_file_size_mb` in config.
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
