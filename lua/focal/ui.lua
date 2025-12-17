@@ -141,7 +141,7 @@ function M.show(path, opts)
             if not ok_img then return end
 
             local img = image_api.from_file(path, {
-                id = path,
+                id = path .. "-focal-preview",
                 max_width_window_percentage = 100,
                 max_height_window_percentage = 100,
             })
