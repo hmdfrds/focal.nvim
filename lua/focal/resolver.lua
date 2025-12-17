@@ -11,6 +11,7 @@ local adapters = {
     require("focal.adapters.neo-tree"),
     require("focal.adapters.nvim-tree"),
     require("focal.adapters.oil"),
+    require("focal.adapters.snacks"),
 }
 
 ---Get list of supported filetypes
@@ -27,7 +28,7 @@ end
 ---@return string|nil path
 function M.get_cursor_path()
     local ft = vim.bo.filetype
-    
+
     for _, adapter in ipairs(adapters) do
         if adapter.filetype == ft then
             -- Found matching adapter
@@ -38,7 +39,7 @@ function M.get_cursor_path()
         end
     end
 
-	return nil
+    return nil
 end
 
 return M

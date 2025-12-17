@@ -19,7 +19,7 @@ function M.check()
     local image_pkg_ok = pcall(require, "image")
     if image_pkg_ok then
         ok("image.nvim is installed.")
-        
+
         -- Check Backend
         local backend_ok, backend_state = pcall(function() return require("image.state").backend end)
         if backend_ok and backend_state then
@@ -35,7 +35,8 @@ function M.check()
     local adapters = {
         ["neo-tree"] = "neo-tree",
         ["nvim-tree"] = "nvim-tree.api",
-        ["oil"] = "oil"
+        ["oil"] = "oil",
+        ["snacks"] = "snacks",
     }
 
     local active_adapters = 0
@@ -55,7 +56,7 @@ function M.check()
     -- 3. Check Configuration
     local config = require("focal.config")
     local focal_opts = require("focal").opts
-    
+
     if focal_opts then
         ok("Configuration loaded.")
     else

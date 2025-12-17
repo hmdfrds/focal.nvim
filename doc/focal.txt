@@ -24,6 +24,7 @@ Supported Explorers:
   - neo-tree.nvim
   - nvim-tree.lua
   - oil.nvim
+  - snacks.nvim (picker)
 
 ==============================================================================
 REQUIREMENTS                                    *focal-requirements*

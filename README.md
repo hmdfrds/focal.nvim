@@ -34,7 +34,7 @@
     -   Any terminal supporting **Kitty Graphics Protocol** or **Sixel**.
     -   _Note: Standard Windows Terminal or GNOME Terminal (older versions) may not work without extensive config._
 -   **File Explorer**:
-    -   Any supported explorer (Neo-tree, Nvim-tree, Oil).
+    -   Any supported explorer (Neo-tree, Nvim-tree, Oil, Snacks).
 
 ## 🚀 Installation
 
