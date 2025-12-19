@@ -15,6 +15,7 @@
     -   `nvim-neo-tree/neo-tree.nvim`
     -   `nvim-tree/nvim-tree.lua`
     -   `stevearc/oil.nvim`
+    -   `folke/snacks.nvim` (explorer)
 -   **Pixel-Perfect Scaling**: Calculates terminal cell geometry to ensure images fill the preview window 100% without distortion or wasted space.
 -   **Performance Guard**: Automatically skips huge files (`>5MB` by default) to prevent your editor from freezing.
 -   **Window Pooling**: Reuses preview windows to eliminate flicker and reduce overhead.
