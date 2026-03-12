@@ -21,7 +21,9 @@ function M.check()
         ok("image.nvim is installed.")
 
         -- Check Backend
-        local backend_ok, backend_state = pcall(function() return require("image.state").backend end)
+        local backend_ok, backend_state = pcall(function()
+            return require("image.state").backend
+        end)
         if backend_ok and backend_state then
             ok("image.nvim backend is initialized: " .. (backend_state.name or "unknown"))
         else

@@ -19,7 +19,9 @@ local _term_utils = nil
 local function get_image_api()
     if not _image_api then
         local ok, api = Utils.safe_require("image")
-        if ok then _image_api = api end
+        if ok then
+            _image_api = api
+        end
     end
     return _image_api
 end
@@ -28,7 +30,9 @@ end
 local function get_term_utils()
     if not _term_utils then
         local ok, tu = Utils.safe_require("image.utils.term")
-        if ok then _term_utils = tu end
+        if ok then
+            _term_utils = tu
+        end
     end
     return _term_utils
 end
@@ -85,7 +89,9 @@ end
 ---@return number rows content height
 function M._calc_geometry(img_w, img_h, opts)
     local term_utils = get_term_utils()
-    if not term_utils then return {}, 0, 0 end
+    if not term_utils then
+        return {}, 0, 0
+    end
 
     local term_size = term_utils.get_size()
 
@@ -98,14 +104,10 @@ function M._calc_geometry(img_w, img_h, opts)
     local img_rows = img_h / cell_h
 
     -- Max constraints (in Cells)
-    local max_cols = math.min(
-        math.floor(vim.o.columns * (opts.max_width_pct / 100)),
-        opts.max_cells or 999
-    ) - OVERFLOW_MARGIN
-    local max_rows = math.min(
-        math.floor(vim.o.lines * (opts.max_height_pct / 100)),
-        opts.max_cells or 999
-    ) - OVERFLOW_MARGIN
+    local max_cols = math.min(math.floor(vim.o.columns * (opts.max_width_pct / 100)), opts.max_cells or 999)
+        - OVERFLOW_MARGIN
+    local max_rows = math.min(math.floor(vim.o.lines * (opts.max_height_pct / 100)), opts.max_cells or 999)
+        - OVERFLOW_MARGIN
 
     -- Scale factor calculation
     local scale = 1.0
@@ -147,7 +149,9 @@ function M._calc_geometry(img_w, img_h, opts)
         border = "rounded",
         focusable = false,
         zindex = FLOAT_ZINDEX,
-    }, final_cols, final_rows
+    },
+        final_cols,
+        final_rows
 end
 
 ---Show preview for the given path.
@@ -162,11 +166,15 @@ function M.show(path, opts)
     local uv = vim.uv or vim.loop
     uv.fs_stat(path, function(err, stat)
         vim.schedule(function()
-            if err or not stat then return end
+            if err or not stat then
+                return
+            end
 
             -- Cancellation: user moved cursor or changed buffer during async stat
             local cur_buf = vim.api.nvim_get_current_buf()
-            if cur_buf ~= ctx_buf then return end
+            if cur_buf ~= ctx_buf then
+                return
+            end
 
             local cur_cursor = vim.api.nvim_win_get_cursor(0)
             if cur_cursor[1] ~= ctx_cursor[1] or cur_cursor[2] ~= ctx_cursor[2] then
@@ -183,7 +191,9 @@ function M.show(path, opts)
 
             -- 2. Load Image
             local image_api = get_image_api()
-            if not image_api then return end
+            if not image_api then
+                return
+            end
 
             local img = image_api.from_file(path, {
                 id = path .. "-focal-preview",
@@ -202,7 +212,9 @@ function M.show(path, opts)
             local win_cfg, w, h = M._calc_geometry(img.image_width, img.image_height, opts)
 
             -- Double check context before touching UI
-            if vim.api.nvim_get_current_buf() ~= ctx_buf then return end
+            if vim.api.nvim_get_current_buf() ~= ctx_buf then
+                return
+            end
 
             -- 4. Create/Update Window
             if M.state.win and vim.api.nvim_win_is_valid(M.state.win) then

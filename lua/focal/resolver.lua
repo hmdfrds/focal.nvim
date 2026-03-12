@@ -84,7 +84,9 @@ end
 function M.get_cursor_path()
     local ft = vim.bo.filetype
     local adapter = ft_map[ft]
-    if not adapter then return nil end
+    if not adapter then
+        return nil
+    end
 
     local ok, path = Utils.safe_call(adapter.get_path)
     if ok and path and type(path) == "string" then
@@ -101,7 +103,9 @@ M._extensions_lookup = {}
 ---@return string|nil path
 function M.resolve_image_path()
     local path = M.get_cursor_path()
-    if not path then return nil end
+    if not path then
+        return nil
+    end
 
     local ext = path:match("^.+%.(.+)$")
     if ext and M._extensions_lookup[ext:lower()] then

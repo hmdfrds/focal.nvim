@@ -10,7 +10,9 @@ M.filetype = "snacks_picker_list"
 ---@return string|nil path Absolute path or nil
 function M.get_path()
     local ok, snacks = Utils.safe_require("snacks")
-    if not ok then return nil end
+    if not ok then
+        return nil
+    end
 
     local pickers = snacks.picker.get()
     if not pickers or #pickers == 0 then
@@ -18,10 +20,14 @@ function M.get_path()
     end
 
     local picker = pickers[1]
-    if not picker then return nil end
+    if not picker then
+        return nil
+    end
 
     local item = picker:current()
-    if not item then return nil end
+    if not item then
+        return nil
+    end
 
     return item.file or item._path
 end

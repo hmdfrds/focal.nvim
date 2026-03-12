@@ -40,49 +40,71 @@ M.defaults = {
 ---@type table<string, FocalConfigRule>
 local rules = {
     debug = {
-        check = function(v) return type(v) == "boolean" end,
+        check = function(v)
+            return type(v) == "boolean"
+        end,
         msg = "must be a boolean",
     },
     min_width = {
-        check = function(v) return type(v) == "number" and v > 0 and math.floor(v) == v end,
+        check = function(v)
+            return type(v) == "number" and v > 0 and math.floor(v) == v
+        end,
         msg = "must be a positive integer",
     },
     min_height = {
-        check = function(v) return type(v) == "number" and v > 0 and math.floor(v) == v end,
+        check = function(v)
+            return type(v) == "number" and v > 0 and math.floor(v) == v
+        end,
         msg = "must be a positive integer",
     },
     max_width_pct = {
-        check = function(v) return type(v) == "number" and v >= 1 and v <= 100 end,
+        check = function(v)
+            return type(v) == "number" and v >= 1 and v <= 100
+        end,
         msg = "must be a number between 1 and 100",
     },
     max_height_pct = {
-        check = function(v) return type(v) == "number" and v >= 1 and v <= 100 end,
+        check = function(v)
+            return type(v) == "number" and v >= 1 and v <= 100
+        end,
         msg = "must be a number between 1 and 100",
     },
     max_cells = {
-        check = function(v) return type(v) == "number" and v > 0 end,
+        check = function(v)
+            return type(v) == "number" and v > 0
+        end,
         msg = "must be a positive number",
     },
     max_file_size_mb = {
-        check = function(v) return type(v) == "number" and v > 0 end,
+        check = function(v)
+            return type(v) == "number" and v > 0
+        end,
         msg = "must be a positive number",
     },
     extensions = {
         check = function(v)
-            if type(v) ~= "table" then return false end
+            if type(v) ~= "table" then
+                return false
+            end
             for _, ext in ipairs(v) do
-                if type(ext) ~= "string" then return false end
+                if type(ext) ~= "string" then
+                    return false
+                end
             end
             return true
         end,
         msg = "must be a table of strings",
     },
     on_show = {
-        check = function(v) return v == nil or type(v) == "function" end,
+        check = function(v)
+            return v == nil or type(v) == "function"
+        end,
         msg = "must be a function or nil",
     },
     on_hide = {
-        check = function(v) return v == nil or type(v) == "function" end,
+        check = function(v)
+            return v == nil or type(v) == "function"
+        end,
         msg = "must be a function or nil",
     },
 }

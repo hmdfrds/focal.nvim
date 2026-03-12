@@ -74,7 +74,9 @@ function M.setup(user_opts)
                 callback = function()
                     local current_cursor = vim.api.nvim_win_get_cursor(0)
                     vim.schedule(function()
-                        if vim.api.nvim_get_current_buf() ~= b then return end
+                        if vim.api.nvim_get_current_buf() ~= b then
+                            return
+                        end
                         local new_cursor = vim.api.nvim_win_get_cursor(0)
                         if new_cursor[1] ~= current_cursor[1] or new_cursor[2] ~= current_cursor[2] then
                             return
