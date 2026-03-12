@@ -30,18 +30,28 @@ Supported Explorers:
 REQUIREMENTS                                    *focal-requirements*
 
 - Neovim >= 0.9.0
-- image.nvim (https://github.com/3rd/image.nvim)
+- At least ONE rendering backend:
+  1. image.nvim (https://github.com/3rd/image.nvim) — pixel-perfect graphics
+  2. chafa (https://hpjansson.org/chafa/) — universal Unicode/ANSI fallback
 - One of the supported explorers (listed above).
 
-System Dependencies (via image.nvim):
-- ImageMagick (required for image processing)
-  - MacOS: `brew install imagemagick`
-  - Linux: `sudo apt-get install imagemagick`
+Backend: image.nvim~
+  Provides pixel-perfect rendering via Kitty Graphics Protocol or Sixel.
+  - System Deps: ImageMagick (`magick`)
+    - MacOS: `brew install imagemagick`
+    - Linux: `sudo apt-get install imagemagick`
+  - Terminals: Kitty, WezTerm, Ghostty, Konsole, Foot, iTerm2
+    Any terminal supporting Kitty Graphics Protocol or Sixel.
 
-Supported Terminals:
-- Kitty, WezTerm, Ghostty
-- Konsole, Foot, iTerm2
-- Any terminal supporting Kitty Graphics Protocol or Sixel.
+Backend: chafa~
+  Converts images to colored Unicode text. Works in ANY terminal with
+  256-color or truecolor support (including tmux, Alacritty, GNOME Terminal,
+  Windows Terminal, SSH sessions).
+  - MacOS: `brew install chafa`
+  - Linux: `sudo apt-get install chafa` / `sudo pacman -S chafa`
+
+When `backend = "auto"` (default), focal.nvim prefers image.nvim if available
+and falls back to chafa automatically.
 
 ==============================================================================
 SETUP                                           *focal-setup*
@@ -99,6 +109,16 @@ Below are the default values with explanations:
             "png", "jpg", "jpeg", "webp", "gif", "bmp"
         },
 
+        -- Rendering backend: "auto" | "image" | "chafa"
+        -- "auto" prefers image.nvim, falls back to chafa.
+        backend = "auto",
+
+        -- Chafa-specific options (only used when backend is "chafa")
+        chafa = {
+            format = "symbols",    -- "symbols" (universal colored Unicode)
+            color_space = nil,     -- nil (auto) | "rgb" | "din99d"
+        },
+
         -- Lifecycle hooks (optional)
         on_show = nil,  -- fun(path: string) called after preview is shown
         on_hide = nil,  -- fun() called after preview is hidden
@@ -144,9 +164,10 @@ COMMANDS                                        *focal-commands*
 
 :checkhealth focal                              *checkhealth-focal*
     Runs standard Neovim health checks.
-    - Verifies `image.nvim` installation and backend status.
+    - Verifies rendering backends (image.nvim and/or chafa).
     - Reports registered adapters (built-in and custom).
     - Detects installed file explorer plugins.
+    - Reports configured backend and chafa version (if installed).
     - Verifies configuration is loaded.
 
 ==============================================================================

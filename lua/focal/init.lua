@@ -43,17 +43,27 @@ function M.setup(user_opts)
     Resolver._load_builtins()
     Resolver._extensions_lookup = extensions_lookup
 
-    -- 4. Ensure Dependencies
+    -- 4. Ensure Dependencies (at least one backend must be available)
+    local Chafa = require("focal.chafa")
+    local has_image = false
+    local has_chafa = Chafa.is_available()
+
     local ok, image_api = Utils.safe_require("image")
-    if not ok then
-        Utils.notify("image.nvim is required.", vim.log.levels.ERROR)
-        return
+    if ok then
+        -- Auto-init image.nvim if needed
+        local initialized = pcall(image_api.create_report)
+        if not initialized then
+            Utils.safe_call(image_api.setup, {})
+        end
+        has_image = true
     end
 
-    -- Auto-init image.nvim if needed
-    local initialized = pcall(image_api.create_report)
-    if not initialized then
-        Utils.safe_call(image_api.setup, {})
+    if not has_image and not has_chafa then
+        Utils.notify(
+            "No rendering backend available. Install image.nvim (with a supported terminal) or chafa.",
+            vim.log.levels.ERROR
+        )
+        return
     end
 
     -- 5. AutoCommands

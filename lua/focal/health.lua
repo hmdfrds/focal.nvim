@@ -15,12 +15,15 @@ local info = vim.health.info or vim.health.report_info
 function M.check()
     start("focal.nvim report")
 
-    -- 1. Check Dependencies
+    -- 1. Check Rendering Backends
+    local has_any_backend = false
+
+    -- image.nvim
     local image_pkg_ok = pcall(require, "image")
     if image_pkg_ok then
         ok("image.nvim is installed.")
+        has_any_backend = true
 
-        -- Check Backend
         local backend_ok, backend_state = pcall(function()
             return require("image.state").backend
         end)
@@ -30,7 +33,28 @@ function M.check()
             warn("image.nvim backend is NOT initialized. focal.nvim will attempt auto-init.")
         end
     else
-        error("image.nvim is not installed. This plugin is required for rendering.")
+        info("image.nvim is not installed.")
+    end
+
+    -- chafa
+    if vim.fn.executable("chafa") == 1 then
+        ok("chafa is installed.")
+        has_any_backend = true
+
+        local chafa_version = vim.fn.system("chafa --version"):match("^[^\n]+") or "unknown"
+        info("chafa version: " .. chafa_version)
+    else
+        info("chafa is not installed.")
+    end
+
+    if not has_any_backend then
+        error("No rendering backend available. Install image.nvim (with a supported terminal) or chafa.")
+    end
+
+    -- Report active backend
+    local focal_opts = require("focal").opts
+    if focal_opts then
+        info(string.format("Configured backend: '%s'", focal_opts.backend or "auto"))
     end
 
     -- 2. Check Adapters

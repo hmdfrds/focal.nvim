@@ -7,6 +7,10 @@ local Utils = require("focal.utils")
 
 local M = {}
 
+---@class FocalChafaConfig
+---@field format? string chafa --format flag: "symbols" (default, universal)
+---@field color_space? string chafa --color-space flag: nil (auto) | "rgb" | "din99d"
+
 ---@class FocalConfig
 ---@field debug boolean Enable debug notifications
 ---@field min_width number Minimum width of preview window (cells)
@@ -16,6 +20,8 @@ local M = {}
 ---@field max_cells number Absolute max cells to prevent overflow
 ---@field extensions string[] List of supported image extensions
 ---@field max_file_size_mb number Max file size in MB to preview
+---@field backend string Rendering backend: "auto" | "image" | "chafa"
+---@field chafa FocalChafaConfig Chafa-specific options
 ---@field on_show? fun(path: string) Called after image preview is shown
 ---@field on_hide? fun() Called after image preview is hidden
 
@@ -29,6 +35,11 @@ M.defaults = {
     max_cells = 60,
     max_file_size_mb = 5,
     extensions = { "png", "jpg", "jpeg", "webp", "gif", "bmp" },
+    backend = "auto",
+    chafa = {
+        format = "symbols",
+        color_space = nil,
+    },
     on_show = nil,
     on_hide = nil,
 }
@@ -94,6 +105,27 @@ local rules = {
             return true
         end,
         msg = "must be a table of strings",
+    },
+    backend = {
+        check = function(v)
+            return v == "auto" or v == "image" or v == "chafa"
+        end,
+        msg = "must be 'auto', 'image', or 'chafa'",
+    },
+    chafa = {
+        check = function(v)
+            if type(v) ~= "table" then
+                return false
+            end
+            if v.format ~= nil and type(v.format) ~= "string" then
+                return false
+            end
+            if v.color_space ~= nil and type(v.color_space) ~= "string" then
+                return false
+            end
+            return true
+        end,
+        msg = "must be a table with optional 'format' (string) and 'color_space' (string) fields",
     },
     on_show = {
         check = function(v)

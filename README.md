@@ -17,6 +17,7 @@
     -   `stevearc/oil.nvim`
     -   `folke/snacks.nvim` (explorer)
 -   **Custom Adapter API**: Register your own adapters for unsupported file explorers.
+-   **Dual Backend**: Pixel-perfect rendering via `image.nvim` on supported terminals, with automatic `chafa` fallback for universal Unicode/ANSI preview on any terminal.
 -   **Pixel-Perfect Scaling**: Calculates terminal cell geometry to ensure images fill the preview window 100% without distortion or wasted space.
 -   **Performance Guard**: Automatically skips huge files (`>5MB` by default) to prevent your editor from freezing.
 -   **Window Pooling**: Reuses preview windows and buffers to eliminate flicker and reduce overhead.
@@ -26,15 +27,16 @@
 ## 📦 Requirements
 
 -   **Neovim** >= 0.9.0
--   **Image Backend**:
-    -   [3rd/image.nvim](https://github.com/3rd/image.nvim) (Required)
-    -   **System Deps**: `magick` (ImageMagick) is required by `image.nvim`.
-        -   MacOS: `brew install imagemagick`
-        -   Linux: `sudo apt-get install imagemagick` / `sudo pacman -S imagemagick`
--   **Terminals**:
-    -   Kitty, WezTerm, Ghostty, Konsole, Foot, iTerm2.
-    -   Any terminal supporting **Kitty Graphics Protocol** or **Sixel**.
-    -   _Note: Standard Windows Terminal or GNOME Terminal (older versions) may not work without extensive config._
+-   **At least one rendering backend** (or both):
+    -   [3rd/image.nvim](https://github.com/3rd/image.nvim) — pixel-perfect graphics
+        -   **System Deps**: `magick` (ImageMagick) is required by `image.nvim`.
+            -   MacOS: `brew install imagemagick`
+            -   Linux: `sudo apt-get install imagemagick` / `sudo pacman -S imagemagick`
+        -   **Terminals**: Kitty, WezTerm, Ghostty, Konsole, Foot, iTerm2 (any terminal supporting **Kitty Graphics Protocol** or **Sixel**).
+    -   [chafa](https://hpjansson.org/chafa/) — universal Unicode/ANSI fallback
+        -   Works in **any** terminal with 256-color or truecolor (Alacritty, GNOME Terminal, Windows Terminal, tmux, SSH, etc.)
+        -   MacOS: `brew install chafa`
+        -   Linux: `sudo apt-get install chafa` / `sudo pacman -S chafa`
 -   **File Explorer**:
     -   Any supported explorer (Neo-tree, Nvim-tree, Oil, Snacks).
 
@@ -46,7 +48,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 {
   "hmdfrds/focal.nvim",
   dependencies = {
-    "3rd/image.nvim",
+    "3rd/image.nvim", -- optional if using chafa backend
   },
   -- ⚠️ IMPORTANT: You MUST set 'opts = {}' or 'config = true'
   -- because this plugin requires setup() to be called.
@@ -83,6 +85,16 @@ opts = {
 
   -- Supported extensions. Files not matching these will be ignored.
   extensions = { "png", "jpg", "jpeg", "webp", "gif", "bmp" },
+
+  -- Rendering backend: "auto" | "image" | "chafa"
+  -- "auto" prefers image.nvim, falls back to chafa automatically.
+  backend = "auto",
+
+  -- Chafa-specific options (only used when backend is "chafa")
+  chafa = {
+    format = "symbols",   -- "symbols" (universal colored Unicode)
+    color_space = nil,    -- nil (auto) | "rgb" | "din99d"
+  },
 
   -- Lifecycle hooks (optional)
   on_show = nil, -- fun(path: string) called after preview is shown
@@ -124,8 +136,9 @@ Run the standard health check to verify your installation, dependencies, and ada
 
 **Common issues checked:**
 
--   Is `image.nvim` installed?
--   Is the image backend (kitty/ueberzug) initialized?
+-   Is `image.nvim` installed and its backend initialized?
+-   Is `chafa` installed (and its version)?
+-   Which rendering backend is configured?
 -   Are any supported file explorer plugins active?
 
 ### 2. Debug Command
@@ -146,5 +159,8 @@ A: `lazy.nvim` only calls `require("focal").setup()` if you provide `opts` or se
 **Q: Why do huge images freeze my editor?**  
 A: Image processing (resizing/converting) is CPU/IO intensive. `image.nvim` waits for this process to finish to ensure the image is ready, which pauses the main thread. Use `max_file_size_mb` to protect yourself.
 
-**Q: My images are small/distorted?**  
+**Q: My images are small/distorted?**
 A: Ensure your terminal supports the graphics protocol you are using (Kitty/Sixel). `focal.nvim` does the math correctly, but the terminal must support the render output.
+
+**Q: Can I use focal.nvim in a terminal without graphics protocol support?**
+A: Yes! Install `chafa` and focal.nvim will automatically use it as a fallback. Chafa converts images to colored Unicode text that works in any terminal with 256-color or truecolor support. Set `backend = "chafa"` to force it, or leave `backend = "auto"` (default) for automatic detection.
