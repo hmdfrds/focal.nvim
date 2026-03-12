@@ -95,11 +95,41 @@ Below are the default values with explanations:
         max_file_size_mb = 5,
 
         -- Supported extensions. Files not matching these will be ignored.
-        extensions = { 
-            "png", "jpg", "jpeg", "webp", "gif", "bmp" 
+        extensions = {
+            "png", "jpg", "jpeg", "webp", "gif", "bmp"
         },
+
+        -- Lifecycle hooks (optional)
+        on_show = nil,  -- fun(path: string) called after preview is shown
+        on_hide = nil,  -- fun() called after preview is hidden
     }
 <
+
+All options are validated at startup. Invalid values trigger a `[focal]`
+warning and fall back to safe defaults automatically.
+
+==============================================================================
+CUSTOM ADAPTERS                                 *focal-custom-adapters*
+
+You can register adapters for unsupported file explorers using the
+`register_adapter()` function. This can be called before or after `setup()`.
+
+>lua
+    require("focal").register_adapter({
+        filetype = "my_explorer",
+        get_path = function()
+            -- Return the absolute path of the file under cursor, or nil.
+            return "/path/to/image.png"
+        end,
+    })
+<
+
+Adapter interface:
+- `filetype` (string)   The buffer filetype to match.
+- `get_path` (function) Returns the absolute file path under cursor, or nil.
+
+Invalid adapters are rejected with a warning. The function returns `true` on
+success and `false` on failure.
 
 ==============================================================================
 COMMANDS                                        *focal-commands*
@@ -114,9 +144,10 @@ COMMANDS                                        *focal-commands*
 
 :checkhealth focal                              *checkhealth-focal*
     Runs standard Neovim health checks.
-    - Verifies `image.nvim` installation.
-    - Checks required system libraries (ImageMagick).
-    - Detects installed explorer adapters.
+    - Verifies `image.nvim` installation and backend status.
+    - Reports registered adapters (built-in and custom).
+    - Detects installed file explorer plugins.
+    - Verifies configuration is loaded.
 
 ==============================================================================
 TROUBLESHOOTING                                 *focal-troubleshooting*

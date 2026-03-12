@@ -16,17 +16,18 @@
     -   `nvim-tree/nvim-tree.lua`
     -   `stevearc/oil.nvim`
     -   `folke/snacks.nvim` (explorer)
+-   **Custom Adapter API**: Register your own adapters for unsupported file explorers.
 -   **Pixel-Perfect Scaling**: Calculates terminal cell geometry to ensure images fill the preview window 100% without distortion or wasted space.
 -   **Performance Guard**: Automatically skips huge files (`>5MB` by default) to prevent your editor from freezing.
--   **Window Pooling**: Reuses preview windows to eliminate flicker and reduce overhead.
+-   **Window Pooling**: Reuses preview windows and buffers to eliminate flicker and reduce overhead.
+-   **Lifecycle Hooks**: Optional `on_show` / `on_hide` callbacks for integration with other plugins.
+-   **Config Validation**: Invalid options are caught at startup with warnings, falling back to safe defaults.
 
 ## 📦 Requirements
 
 -   **Neovim** >= 0.9.0
 -   **Image Backend**:
     -   [3rd/image.nvim](https://github.com/3rd/image.nvim) (Required)
-    -   **System Deps**: `magick` (ImageMagick) is required by `image.nvim`.
-        -   MacOS: `brew install imagemagick`
     -   **System Deps**: `magick` (ImageMagick) is required by `image.nvim`.
         -   MacOS: `brew install imagemagick`
         -   Linux: `sudo apt-get install imagemagick` / `sudo pacman -S imagemagick`
@@ -82,8 +83,32 @@ opts = {
 
   -- Supported extensions. Files not matching these will be ignored.
   extensions = { "png", "jpg", "jpeg", "webp", "gif", "bmp" },
+
+  -- Lifecycle hooks (optional)
+  on_show = nil, -- fun(path: string) called after preview is shown
+  on_hide = nil, -- fun() called after preview is hidden
 }
 ```
+
+> **Note:** All options are validated at startup. Invalid values trigger a warning and fall back to the default.
+
+## 🔌 Custom Adapters
+
+You can register adapters for unsupported file explorers:
+
+```lua
+require("focal").register_adapter({
+  filetype = "my_explorer",  -- the filetype of the explorer buffer
+  get_path = function()
+    -- return the absolute path of the file under cursor, or nil
+    return "/path/to/image.png"
+  end,
+})
+```
+
+The adapter must have:
+-   `filetype` (string): The buffer filetype to match.
+-   `get_path` (function): Returns the absolute file path under cursor, or `nil`.
 
 ## 🩺 Diagnostics & Troubleshooting
 
