@@ -39,7 +39,7 @@ end
 ---@param width integer Target width in character cells
 ---@param height integer Target height in character cells
 ---@param opts? table { format?: string, color_space?: string }
----@param callback? fun(ok: boolean) Called when rendering completes
+---@param callback? fun(ok: boolean, actual_rows?: integer) Called when rendering completes
 function M.render(path, buf, width, height, opts, callback)
     opts = opts or {}
     callback = callback or function() end
@@ -101,11 +101,21 @@ function M.render(path, buf, width, height, opts, callback)
                 return
             end
 
+            -- Count actual output lines for tight window fitting
+            local actual_rows = 1
+            for _ in output:gmatch("\n") do
+                actual_rows = actual_rows + 1
+            end
+            -- Strip trailing empty line from count (chafa often ends with \n)
+            if output:sub(-1) == "\n" then
+                actual_rows = actual_rows - 1
+            end
+
             -- Create terminal channel and send ANSI output
             local chan = vim.api.nvim_open_term(buf, {})
             vim.api.nvim_chan_send(chan, output)
 
-            callback(true)
+            callback(true, actual_rows)
         end)
     end)
 

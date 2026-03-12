@@ -363,7 +363,23 @@ local function show_chafa(path, opts, ctx_buf, ctx_cursor, stat)
     Chafa.render(path, M.state.buf, w, h, {
         format = chafa_opts.format,
         color_space = chafa_opts.color_space,
-    })
+    }, function(render_ok, actual_rows)
+        if not render_ok then
+            return
+        end
+
+        -- Tight-fit: resize window height to match actual chafa output
+        if actual_rows and actual_rows < h and M.state.win and vim.api.nvim_win_is_valid(M.state.win) then
+            local tight_height = math.max(opts.min_height, actual_rows)
+            Utils.safe_call(vim.api.nvim_win_set_config, M.state.win, {
+                relative = "cursor",
+                row = win_cfg.row,
+                col = win_cfg.col,
+                width = w,
+                height = tight_height,
+            })
+        end
+    end)
 end
 
 ---Show preview for the given path.
