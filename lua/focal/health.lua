@@ -34,29 +34,37 @@ function M.check()
     end
 
     -- 2. Check Adapters
-    local adapters = {
+    local Resolver = require("focal.resolver")
+    local registered_fts = Resolver.get_supported_filetypes()
+
+    if #registered_fts > 0 then
+        ok(string.format("Registered adapters (%d): %s", #registered_fts, table.concat(registered_fts, ", ")))
+    else
+        warn("No adapters registered. Has setup() been called?")
+    end
+
+    local explorer_pkgs = {
         ["neo-tree"] = "neo-tree",
         ["nvim-tree"] = "nvim-tree.api",
         ["oil"] = "oil",
         ["snacks"] = "snacks",
     }
 
-    local active_adapters = 0
-    for name, pkg in pairs(adapters) do
+    local active_explorers = 0
+    for name, pkg in pairs(explorer_pkgs) do
         if pcall(require, pkg) then
-            ok(string.format("Adapter: '%s' is active (plugin installed).", name))
-            active_adapters = active_adapters + 1
+            ok(string.format("Explorer: '%s' is installed.", name))
+            active_explorers = active_explorers + 1
         else
-            info(string.format("Adapter: '%s' not found (plugin not installed).", name))
+            info(string.format("Explorer: '%s' not found.", name))
         end
     end
 
-    if active_adapters == 0 then
+    if active_explorers == 0 then
         warn("No supported file explorer found. focal.nvim will not trigger.")
     end
 
     -- 3. Check Configuration
-    local config = require("focal.config")
     local focal_opts = require("focal").opts
 
     if focal_opts then
