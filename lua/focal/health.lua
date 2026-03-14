@@ -24,13 +24,15 @@ function M.check()
         ok("image.nvim is installed.")
         has_any_backend = true
 
-        local backend_ok, backend_state = pcall(function()
-            return require("image.state").backend
+        local backend_ok, is_initialized = pcall(function()
+            local api = require("image")
+            api.get_images()
+            return api.is_enabled()
         end)
-        if backend_ok and backend_state then
-            ok("image.nvim backend is initialized: " .. (backend_state.name or "unknown"))
+        if backend_ok and is_initialized then
+            ok("image.nvim is initialized and enabled.")
         else
-            warn("image.nvim backend is NOT initialized. focal.nvim will attempt auto-init.")
+            warn("image.nvim is NOT initialized or disabled. focal.nvim will attempt auto-init.")
         end
     else
         info("image.nvim is not installed.")

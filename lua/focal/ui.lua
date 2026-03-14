@@ -70,10 +70,15 @@ local function detect_backend(opts)
         local image_api = get_image_api()
         if image_api then
             -- Check if backend is actually initialized
-            local backend_ok = pcall(function()
-                return require("image.state").backend
+            local initialized = false
+            pcall(function()
+                if image_api.is_enabled and image_api.is_enabled() then
+                    image_api.get_images()
+                    initialized = true
+                end
             end)
-            if backend_ok then
+
+            if initialized then
                 _backend = "image"
             end
         end
