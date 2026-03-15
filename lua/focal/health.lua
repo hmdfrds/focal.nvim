@@ -53,6 +53,35 @@ function M.check()
         error("No rendering backend available. Install image.nvim (with a supported terminal) or chafa.")
     end
 
+    -- Terminal Graphics Protocol Detection
+    local Terminal = require("focal.terminal")
+    local term_info = Terminal.detect()
+
+    if term_info.has_graphics then
+        ok(
+            string.format(
+                "Terminal supports graphics: %s (%s protocol)",
+                term_info.terminal or "unknown",
+                term_info.protocol or "unknown"
+            )
+        )
+    else
+        info(
+            string.format(
+                "Terminal does not support graphics protocols (terminal: %s). chafa will be used as fallback.",
+                term_info.terminal or "unknown"
+            )
+        )
+    end
+
+    if term_info.in_tmux then
+        info("Running inside tmux. Graphics passthrough depends on tmux allow-passthrough setting.")
+    end
+
+    if term_info.in_ssh then
+        info("Running inside SSH session. Graphics protocol support may be limited.")
+    end
+
     -- Report active backend
     local focal_opts = require("focal").opts
     if focal_opts then

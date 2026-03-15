@@ -82,9 +82,7 @@ function M.render(path, buf, width, height, opts, callback)
 
         vim.schedule(function()
             if code ~= 0 then
-                if Utils._debug then
-                    Utils.notify("chafa exited with code " .. code, vim.log.levels.DEBUG)
-                end
+                Utils.notify("chafa exited with code " .. code, vim.log.levels.WARN)
                 callback(false)
                 return
             end
@@ -97,6 +95,9 @@ function M.render(path, buf, width, height, opts, callback)
 
             local output = table.concat(chunks)
             if output == "" then
+                if Utils._debug then
+                    Utils.notify("chafa produced empty output for: " .. path, vim.log.levels.DEBUG)
+                end
                 callback(false)
                 return
             end
@@ -120,9 +121,7 @@ function M.render(path, buf, width, height, opts, callback)
     end)
 
     if not handle then
-        if Utils._debug then
-            Utils.notify("Failed to spawn chafa: " .. tostring(err), vim.log.levels.DEBUG)
-        end
+        Utils.notify("Failed to spawn chafa: " .. tostring(err), vim.log.levels.WARN)
         callback(false)
         return
     end

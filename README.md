@@ -87,7 +87,8 @@ opts = {
   extensions = { "png", "jpg", "jpeg", "webp", "gif", "bmp" },
 
   -- Rendering backend: "auto" | "image" | "chafa"
-  -- "auto" prefers image.nvim, falls back to chafa automatically.
+  -- "auto" detects terminal graphics capability, uses image.nvim
+  -- if supported, otherwise falls back to chafa.
   backend = "auto",
 
   -- Chafa-specific options (only used when backend is "chafa")
@@ -138,6 +139,7 @@ Run the standard health check to verify your installation, dependencies, and ada
 
 -   Is `image.nvim` installed and its backend initialized?
 -   Is `chafa` installed (and its version)?
+-   Does your terminal support a graphics protocol (Kitty, Sixel)?
 -   Which rendering backend is configured?
 -   Are any supported file explorer plugins active?
 

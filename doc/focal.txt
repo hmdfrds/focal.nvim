@@ -50,8 +50,12 @@ Backend: chafa~
   - MacOS: `brew install chafa`
   - Linux: `sudo apt-get install chafa` / `sudo pacman -S chafa`
 
-When `backend = "auto"` (default), focal.nvim prefers image.nvim if available
-and falls back to chafa automatically.
+When `backend = "auto"` (default), focal.nvim detects the terminal's graphics
+protocol support via environment variables. If a graphics-capable terminal is
+detected (Kitty, WezTerm, Ghostty, iTerm2, foot, Konsole), image.nvim is
+used. Otherwise, chafa is used as a universal fallback. This prevents empty
+preview windows when image.nvim is installed but the terminal lacks graphics
+support.
 
 ==============================================================================
 SETUP                                           *focal-setup*
@@ -110,7 +114,8 @@ Below are the default values with explanations:
         },
 
         -- Rendering backend: "auto" | "image" | "chafa"
-        -- "auto" prefers image.nvim, falls back to chafa.
+        -- "auto" detects terminal graphics capability, uses image.nvim
+        -- if supported, otherwise falls back to chafa.
         backend = "auto",
 
         -- Chafa-specific options (only used when backend is "chafa")
@@ -127,6 +132,38 @@ Below are the default values with explanations:
 
 All options are validated at startup. Invalid values trigger a `[focal]`
 warning and fall back to safe defaults automatically.
+
+==============================================================================
+TERMINAL DETECTION                              *focal-terminal-detection*
+
+When `backend = "auto"`, focal.nvim checks environment variables to determine
+whether your terminal supports a graphics protocol:
+
+  Kitty protocol:  `$KITTY_PID` or `$TERM == "xterm-kitty"`
+  WezTerm:         `$TERM_PROGRAM == "WezTerm"`
+  Ghostty:         `$TERM_PROGRAM == "ghostty"`
+  iTerm2:          `$TERM_PROGRAM == "iTerm.app"`
+  foot:            `$TERM` starts with "foot"
+  Konsole:         `$KONSOLE_VERSION` is set
+
+If none of these are detected, focal.nvim uses chafa instead of image.nvim.
+This avoids the common issue where image.nvim is installed but the terminal
+cannot display graphics, resulting in an empty preview window.
+
+tmux~
+  Environment variables from the outer terminal are typically inherited.
+  If your outer terminal is Kitty/WezTerm/Ghostty, detection works. However,
+  you must enable `set -g allow-passthrough on` in tmux.conf for image.nvim
+  to render through tmux.
+
+SSH~
+  Graphics protocols generally do not work over SSH. Exception: Kitty's
+  SSH kitten (`kitten ssh`) preserves `$TERM=xterm-kitty`.
+
+To override auto-detection, set `backend = "image"` or `backend = "chafa"`
+explicitly in your configuration.
+
+Run `:checkhealth focal` to see what terminal protocol was detected.
 
 ==============================================================================
 CUSTOM ADAPTERS                                 *focal-custom-adapters*
@@ -165,6 +202,8 @@ COMMANDS                                        *focal-commands*
 :checkhealth focal                              *checkhealth-focal*
     Runs standard Neovim health checks.
     - Verifies rendering backends (image.nvim and/or chafa).
+    - Detects terminal graphics protocol (Kitty, Sixel, etc.).
+    - Reports tmux and SSH session status.
     - Reports registered adapters (built-in and custom).
     - Detects installed file explorer plugins.
     - Reports configured backend and chafa version (if installed).

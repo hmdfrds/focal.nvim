@@ -1,5 +1,6 @@
 local Utils = require("focal.utils")
 local Chafa = require("focal.chafa")
+local Terminal = require("focal.terminal")
 
 local M = {}
 
@@ -66,21 +67,32 @@ local function detect_backend(opts)
             Utils.notify("Backend 'chafa' requested but chafa is not installed.", vim.log.levels.ERROR)
         end
     else
-        -- Auto-detect: prefer image.nvim, fallback to chafa
-        local image_api = get_image_api()
-        if image_api then
-            -- Check if backend is actually initialized
-            local initialized = false
-            pcall(function()
-                if image_api.is_enabled and image_api.is_enabled() then
-                    image_api.get_images()
-                    initialized = true
-                end
-            end)
+        -- Auto-detect: check terminal capability first, then try backends
+        local term_info = Terminal.detect()
 
-            if initialized then
-                _backend = "image"
+        if term_info.has_graphics then
+            local image_api = get_image_api()
+            if image_api then
+                local initialized = false
+                pcall(function()
+                    if image_api.is_enabled and image_api.is_enabled() then
+                        image_api.get_images()
+                        initialized = true
+                    end
+                end)
+
+                if initialized then
+                    _backend = "image"
+                end
             end
+        elseif opts.debug then
+            Utils.notify(
+                string.format(
+                    "Terminal '%s' does not support graphics protocols; skipping image.nvim",
+                    term_info.terminal or "unknown"
+                ),
+                vim.log.levels.DEBUG
+            )
         end
 
         if not _backend and Chafa.is_available() then
@@ -142,6 +154,7 @@ end
 function M.cleanup()
     M.hide()
     Chafa.cleanup()
+    Terminal.reset_cache()
     _image_api = nil
     _term_utils = nil
     _backend = nil
@@ -370,6 +383,7 @@ local function show_chafa(path, opts, ctx_buf, ctx_cursor, stat)
         color_space = chafa_opts.color_space,
     }, function(render_ok, actual_rows)
         if not render_ok then
+            M.hide()
             return
         end
 
