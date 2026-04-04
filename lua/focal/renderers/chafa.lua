@@ -46,7 +46,7 @@ local function build_args(path, width, height, config)
         "--format=" .. config.chafa.format,
     }
 
-    if not config.chafa.animate then
+    if config.chafa.animate ~= true then
         args[#args + 1] = "--animate=off"
     end
 
@@ -54,6 +54,7 @@ local function build_args(path, width, height, config)
         args[#args + 1] = "--color-space=" .. config.chafa.color_space
     end
 
+    args[#args + 1] = "--"
     args[#args + 1] = path
     return args
 end
