@@ -35,7 +35,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
-  "hmdfrds/iris.nvim",
+  "hmdfrds/focal.nvim",
   dependencies = {
     "3rd/image.nvim", -- optional if using chafa backend
   },
