@@ -499,16 +499,27 @@ function PM:on_cursor_moved(new_path, new_extension)
     end
 end
 
----Handle terminal resize. Visible: reposition. Rendering: cancel and restart.
+---Handle terminal resize. Visible: reposition or re-render. Rendering: cancel and restart.
 function PM:on_resize()
     if self._state == "visible" and self._window_mgr:is_open() then
-        if self._current_renderer and self._current_path and self._current_stat then
-            local env = self:_build_env()
-            local geometry = self._current_renderer.get_geometry(self._current_path, self._current_stat, env)
-            self._window_mgr:resize(geometry)
+        if self._current_renderer and self._current_renderer.needs_terminal then
+            -- Terminal renderers have baked ANSI output — must re-render
+            local path = self._current_path
+            self:hide()
+            if path then
+                self:show(path)
+            end
+        else
+            -- Pixel renderers (image.nvim) can resize in place
+            if self._current_renderer and self._current_path and self._current_stat then
+                local env = self:_build_env()
+                local ok, geometry = pcall(self._current_renderer.get_geometry, self._current_path, self._current_stat, env)
+                if ok and geometry then
+                    self._window_mgr:resize(geometry)
+                end
+            end
+            self._window_mgr:reposition(self:_create_anchor())
         end
-        local anchor = self:_create_anchor()
-        self._window_mgr:reposition(anchor)
     elseif self._state == "rendering" then
         local path = self._current_path
         self:hide()
