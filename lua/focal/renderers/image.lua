@@ -92,14 +92,16 @@ function M.render(ctx, done)
         return
     end
 
+    -- Set buffer/window on the image object so image.nvim renders into the float.
+    _img.buffer = ctx.buf
+    _img.window = ctx.win
+
     local ok, err = pcall(function()
         _img:render({
             x = 0,
             y = 0,
             width = ctx.geometry.width,
             height = ctx.geometry.height,
-            buffer = ctx.buf,
-            window = ctx.win,
             with_virtual_padding = true,
             inline = false,
             y_offset = Geo.tabline_offset(),
