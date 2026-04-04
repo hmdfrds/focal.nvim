@@ -1,0 +1,12 @@
+# Exclude non-essential files from release archives (git archive)
+tests/          export-ignore
+assets/         export-ignore
+.github/        export-ignore
+.stylua.toml    export-ignore
+.luarc.json     export-ignore
+.editorconfig   export-ignore
+selene.toml     export-ignore
+vim.yml         export-ignore
+Makefile        export-ignore
+CONTRIBUTING.md export-ignore
+CHANGELOG.md    export-ignore
