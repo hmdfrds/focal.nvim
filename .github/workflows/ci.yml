@@ -5,9 +5,14 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: JohnnyMorganz/stylua-action@v4
@@ -19,6 +24,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       matrix:
         neovim: ['v0.10.0', 'stable', 'nightly']
@@ -30,5 +36,7 @@ jobs:
           version: ${{ matrix.neovim }}
       - name: Install chafa
         run: sudo apt-get install -y chafa
+      - name: Install test dependencies
+        run: make deps
       - name: Run tests
         run: make test
