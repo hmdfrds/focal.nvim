@@ -20,9 +20,9 @@
 ---@field min_height integer
 ---@field max_width integer
 ---@field max_height integer
----@field max_width_percent integer
----@field max_height_percent integer
----@field max_file_size_mb integer
+---@field max_width_percent number
+---@field max_height_percent number
+---@field max_file_size_mb number
 ---@field debounce_ms integer
 ---@field col_offset integer
 ---@field row_offset integer
