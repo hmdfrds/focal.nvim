@@ -101,18 +101,30 @@ function M.render(ctx, done)
             end
             pcall(vim.api.nvim_chan_send, ctx.chan, stdout)
 
-            -- Count actual non-empty output lines for tight-fit height.
+            -- Count actual non-empty output lines for tight-fit height,
+            -- and measure visible width of the first line (strip ANSI escapes).
             local line_count = 0
-            for _ in stdout:gmatch("[^\n]+") do
+            local max_visible_width = 0
+            for line in stdout:gmatch("[^\n]+") do
                 line_count = line_count + 1
+                if line_count <= 2 then
+                    -- Strip ANSI escape sequences to get visible character count.
+                    -- Each chafa "pixel" is one character wide.
+                    local visible = line:gsub("\27%[[%d;]*m", "")
+                    local w = vim.fn.strdisplaywidth(visible)
+                    if w > max_visible_width then
+                        max_visible_width = w
+                    end
+                end
             end
             if line_count == 0 then
                 line_count = 1
             end
+            local fit_width = max_visible_width > 0 and math.min(max_visible_width, ctx.geometry.width) or ctx.geometry.width
             local fit_height = math.min(line_count, ctx.geometry.height)
 
             done(true, {
-                fit = { width = ctx.geometry.width, height = fit_height },
+                fit = { width = fit_width, height = fit_height },
                 output = stdout,
             })
         end,
