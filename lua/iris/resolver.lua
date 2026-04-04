@@ -23,6 +23,9 @@ function M.register_source(source)
     if type(source.get_path) ~= "function" then
         return false
     end
+    if ft_map[source.filetype] then
+        vim.notify(string.format("[iris] Source '%s' overwritten by new registration", source.filetype), vim.log.levels.WARN)
+    end
     ft_map[source.filetype] = source
     return true
 end
