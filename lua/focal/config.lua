@@ -162,14 +162,7 @@ local function validate_type(key, value, default)
         end
     end
     if not valid then
-        warn(
-            string.format(
-                "[focal] config.%s must be %s (got %s), using default",
-                key,
-                expect,
-                type(value)
-            )
-        )
+        warn(string.format("[focal] config.%s must be %s (got %s), using default", key, expect, type(value)))
         return default
     end
     return value
@@ -205,17 +198,9 @@ function M.merge(user_opts)
         if expected_types[key] == nil then
             local suggestion = closest_key(key)
             if suggestion then
-                warn(
-                    string.format(
-                        "[focal] Unknown config key '%s'. Did you mean '%s'?",
-                        key,
-                        suggestion
-                    )
-                )
+                warn(string.format("[focal] Unknown config key '%s'. Did you mean '%s'?", key, suggestion))
             else
-                warn(
-                    string.format("[focal] Unknown config key '%s'.", key)
-                )
+                warn(string.format("[focal] Unknown config key '%s'.", key))
             end
         end
     end
@@ -243,6 +228,16 @@ function M.merge(user_opts)
     -- Cross-field validation.
     validate_min_max(cfg, "min_width", "max_width")
     validate_min_max(cfg, "min_height", "max_height")
+
+    -- Guard against NaN and infinity for all numeric keys.
+    for key, expect in pairs(expected_types) do
+        if expect:find("number") and type(cfg[key]) == "number" then
+            if cfg[key] ~= cfg[key] or cfg[key] == math.huge or cfg[key] == -math.huge then
+                warn(string.format("[focal] config.%s is NaN or infinite, using default", key))
+                cfg[key] = M.defaults[key]
+            end
+        end
+    end
 
     -- Range clamping.
     for _, dim_key in ipairs({ "min_width", "min_height", "max_width", "max_height" }) do
