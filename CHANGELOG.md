@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-04-04
 
 ### Added
 - Initial release: ground-up rewrite (developed as iris.nvim, released as focal.nvim)
