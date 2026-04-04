@@ -25,7 +25,7 @@ focal.nvim is an extensible preview framework with dual backends (pixel-perfect 
 
 ## Requirements
 
-- **Neovim** >= 0.10.0
+- **Neovim** >= 0.10
 - **At least one rendering backend:**
   - [image.nvim](https://github.com/3rd/image.nvim) — pixel-perfect graphics (Kitty, WezTerm, Ghostty, iTerm2, foot, Konsole)
   - [chafa](https://hpjansson.org/chafa/) — universal Unicode/ANSI fallback (any terminal with 256-color or truecolor)
