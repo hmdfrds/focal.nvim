@@ -14,7 +14,7 @@
 - Manual preview (:FocalShow [path])
 - Configurable border, winblend, zindex, title
 - :checkhealth integration
-- 82 tests with mini.test
+- 102 tests with mini.test
 
 ### Fixed
 - 50-agent review fixes:
