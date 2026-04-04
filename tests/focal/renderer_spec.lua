@@ -63,4 +63,35 @@ T["find_renderer() respects extensions whitelist"] = function()
     Registry.set_whitelist(nil)
 end
 
+T["rejects renderer with non-number priority"] = function()
+    local r = H.mock_renderer({ priority = "high" })
+    MiniTest.expect.equality(Registry.register_renderer(r), false)
+end
+
+T["rejects renderer with non-function is_available"] = function()
+    local r = H.mock_renderer({ is_available = "yes" })
+    MiniTest.expect.equality(Registry.register_renderer(r), false)
+end
+
+T["rejects renderer with non-function render"] = function()
+    local r = H.mock_renderer()
+    r.render = nil
+    MiniTest.expect.equality(Registry.register_renderer(r), false)
+end
+
+T["rejects renderer with missing needs_terminal"] = function()
+    local r = H.mock_renderer()
+    r.needs_terminal = nil
+    MiniTest.expect.equality(Registry.register_renderer(r), false)
+end
+
+T["is_available pcall catches errors"] = function()
+    Registry.register_renderer(H.mock_renderer({
+        name = "crashy",
+        is_available = function() error("boom") end,
+    }))
+    local r = Registry.find_renderer("png")
+    MiniTest.expect.equality(r, nil)
+end
+
 return T

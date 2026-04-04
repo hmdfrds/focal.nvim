@@ -48,4 +48,10 @@ T["register_source() overwrites on collision with warning"] = function()
     MiniTest.expect.equality(check(), true)
 end
 
+T["register_source rejects non-table"] = function()
+    MiniTest.expect.equality(Resolver.register_source("not a table"), false)
+    MiniTest.expect.equality(Resolver.register_source(nil), false)
+    MiniTest.expect.equality(Resolver.register_source(42), false)
+end
+
 return T

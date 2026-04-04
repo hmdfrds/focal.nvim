@@ -73,4 +73,28 @@ T["extract_extension() gets last extension"] = function()
     MiniTest.expect.equality(Geo.extract_extension("/foo/noext"), nil)
 end
 
+T["overflow_margin: table border with content returns 2"] = function()
+    MiniTest.expect.equality(Geo.overflow_margin({ "+", "+", "+", "+", "+", "+", "+", "+" }), 2)
+end
+
+T["overflow_margin: empty table border returns 0"] = function()
+    MiniTest.expect.equality(Geo.overflow_margin({ "", "", "", "", "", "", "", "" }), 0)
+end
+
+T["extract_extension: dotfile returns extension-like string"] = function()
+    MiniTest.expect.equality(Geo.extract_extension(".gitignore"), "gitignore")
+end
+
+T["extract_extension: trailing dot returns nil"] = function()
+    MiniTest.expect.equality(Geo.extract_extension("file."), nil)
+end
+
+T["extract_extension: no dot returns nil"] = function()
+    MiniTest.expect.equality(Geo.extract_extension("Makefile"), nil)
+end
+
+T["extract_extension: empty string returns nil"] = function()
+    MiniTest.expect.equality(Geo.extract_extension(""), nil)
+end
+
 return T

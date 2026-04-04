@@ -85,4 +85,33 @@ T["stats() tracks hits, misses, evictions"] = function()
     MiniTest.expect.equality(s.evictions, 1)
 end
 
+T["rejects oversized entries"] = function()
+    local c = Cache.new({ max_bytes = 10 })
+    c:put("/a.png", 1, { width = 40, height = 20 }, "12345678901234567890", { width = 40, height = 20 })
+    local s = c:stats()
+    MiniTest.expect.equality(s.entries, 0)
+end
+
+T["multi-eviction: large entry evicts multiple small ones"] = function()
+    local c = Cache.new({ max_bytes = 20, max_entries = 10 })
+    c:put("/a.png", 1, { width = 1, height = 1 }, "12345", { width = 1, height = 1 })
+    c:put("/b.png", 1, { width = 1, height = 1 }, "12345", { width = 1, height = 1 })
+    c:put("/c.png", 1, { width = 1, height = 1 }, "12345", { width = 1, height = 1 })
+    c:put("/d.png", 1, { width = 1, height = 1 }, "123456789012345", { width = 1, height = 1 })
+    local s = c:stats()
+    MiniTest.expect.equality(s.entries, 2)
+    MiniTest.expect.equality(c:get("/a.png", 1, { width = 1, height = 1 }), nil)
+    MiniTest.expect.equality(c:get("/b.png", 1, { width = 1, height = 1 }), nil)
+end
+
+T["invalidate removes stale mtime entries"] = function()
+    local c = Cache.new()
+    c:put("/a.png", 100, { width = 10, height = 10 }, "old", { width = 10, height = 10 })
+    c:put("/a.png", 200, { width = 10, height = 10 }, "new", { width = 10, height = 10 })
+    c:invalidate("/a.png")
+    MiniTest.expect.equality(c:get("/a.png", 100, { width = 10, height = 10 }), nil)
+    MiniTest.expect.equality(c:get("/a.png", 200, { width = 10, height = 10 }), nil)
+    MiniTest.expect.equality(c:stats().entries, 0)
+end
+
 return T
