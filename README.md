@@ -1,8 +1,12 @@
 # focal.nvim
 
+[![CI](https://github.com/hmdfrds/focal.nvim/actions/workflows/ci.yml/badge.svg)](https://github.com/hmdfrds/focal.nvim/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Neovim](https://img.shields.io/badge/Neovim-0.10%2B-green.svg)](https://neovim.io)
+
 > Universal file preview for Neovim. Hover over a file in any explorer, see a preview.
 
-![focal.nvim demo](assets/bruh.gif)
+![focal.nvim demo](assets/demo.gif)
 
 focal.nvim is an extensible preview framework with dual backends (pixel-perfect via image.nvim, Unicode fallback via chafa) and a plugin adapter system that works with any file explorer.
 
@@ -53,6 +57,11 @@ Generic:
 ```lua
 require("focal").setup({})
 ```
+
+> **Tip:** Neovim's default `updatetime` is 4000ms, which means previews take 4 seconds to appear. Most users set it lower for responsive LSP diagnostics, which also makes focal snappier:
+> ```lua
+> vim.o.updatetime = 300
+> ```
 
 ## Configuration
 
