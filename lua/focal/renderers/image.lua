@@ -71,11 +71,25 @@ function M.get_geometry(path, stat, env)
         return { width = env.max_width, height = env.max_height }
     end
 
+    -- Use image.nvim's own terminal cell size (from ioctl) for accurate scaling.
+    -- Our env.cell_width/cell_height are hardcoded 8x16 fallbacks that don't
+    -- match the real terminal on HiDPI or non-standard fonts.
+    local cell_w = env.cell_width
+    local cell_h = env.cell_height
+    local term_ok, term_mod = pcall(require, "image.utils.term")
+    if term_ok and term_mod and term_mod.get_size then
+        local ts = term_mod.get_size()
+        if ts and ts.cell_width and ts.cell_height and ts.cell_width > 0 and ts.cell_height > 0 then
+            cell_w = ts.cell_width
+            cell_h = ts.cell_height
+        end
+    end
+
     return Geo.scale_to_fit(
         img_w,
         img_h,
-        env.cell_width,
-        env.cell_height,
+        cell_w,
+        cell_h,
         env.max_width,
         env.max_height,
         1,
