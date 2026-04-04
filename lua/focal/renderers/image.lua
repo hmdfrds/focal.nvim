@@ -14,19 +14,31 @@ local _image_api = nil
 ---@type table|nil  current image object
 local _img = nil
 
+---@type boolean|nil  cached availability result
+local _available = nil
+
 ---Check whether image.nvim is available and the terminal supports graphics.
 ---@return boolean
 function M.is_available()
+    if _available ~= nil then
+        return _available
+    end
+
     local term = require("focal.terminal").detect()
     if not term.has_graphics then
+        _available = false
         return false
     end
 
     local ok, api = pcall(require, "image")
-    if not ok then return false end
+    if not ok then
+        _available = false
+        return false
+    end
 
     -- image.nvim must be initialized (setup() called) to expose from_file.
     if type(api.from_file) ~= "function" then
+        _available = false
         return false
     end
 
@@ -36,11 +48,13 @@ function M.is_available()
     if type(api.setup) == "function" then
         local probe_ok, probe_err = pcall(api.from_file, "", { id = "focal-setup-probe" })
         if not probe_ok and type(probe_err) == "string" and probe_err:find("not setup") then
+            _available = false
             return false
         end
     end
 
     _image_api = api
+    _available = true
     return true
 end
 
@@ -82,6 +96,9 @@ function M.render(ctx, done)
     -- Set buffer/window on the image object so image.nvim renders into the float.
     _img.buffer = ctx.buf
     _img.window = ctx.win
+    -- Allow image to fill the full window (image.nvim defaults to 50%).
+    _img.max_height_window_percentage = 100
+    _img.max_width_window_percentage = 100
 
     local ok, err = pcall(function()
         _img:render({
@@ -89,9 +106,6 @@ function M.render(ctx, done)
             y = 0,
             width = ctx.geometry.width,
             height = ctx.geometry.height,
-            with_virtual_padding = true,
-            inline = false,
-            y_offset = Geo.tabline_offset(),
         })
     end)
 
@@ -124,6 +138,7 @@ end
 function M.cleanup()
     M.clear()
     _image_api = nil
+    _available = nil
 end
 
 ---Register this renderer with the renderer registry.
