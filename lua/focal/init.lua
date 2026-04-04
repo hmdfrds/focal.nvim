@@ -18,7 +18,7 @@ local _debounce_timer = nil ---@type uv_timer_t|nil
 local _resize_timer = nil ---@type uv_timer_t|nil
 
 -- Deferred-require holders — populated lazily in setup().
-local _config = nil
+local _config_mod = nil  -- the focal.config module (schema/merge logic)
 local _resolver = nil
 local _renderer = nil
 local _window = nil
@@ -26,7 +26,7 @@ local _preview = nil
 local _cache_mod = nil
 local _geometry = nil
 
--- Merged config table (the result of config.merge()).
+-- Merged config table (the result of _config_mod.merge()).
 local _cfg = nil
 
 -- ---------------------------------------------------------------------------
@@ -388,13 +388,17 @@ end
 ---@param user_opts? table
 function M.setup(user_opts)
     -- Deferred requires — only loaded on first setup().
-    _config = require("focal.config")
+    _config_mod = require("focal.config")
     _resolver = require("focal.resolver")
     _renderer = require("focal.renderer")
     _window = require("focal.window")
     _preview = require("focal.preview")
     _cache_mod = require("focal.lib.cache")
     _geometry = require("focal.lib.geometry")
+
+    -- Cancel any in-flight timers before re-initialization.
+    cancel_debounce()
+    cancel_resize_debounce()
 
     -- If re-setup: hide active preview, snapshot current registries into pending.
     if _setup_done and _preview_mgr then
@@ -428,7 +432,7 @@ function M.setup(user_opts)
     _renderer._reset()
 
     -- Merge config.
-    _cfg = _config.merge(user_opts)
+    _cfg = _config_mod.merge(user_opts)
 
     -- Load built-in sources and renderers.
     _resolver.load_builtins()
