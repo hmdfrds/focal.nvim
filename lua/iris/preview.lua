@@ -123,6 +123,18 @@ end
 -- State transitions
 -- ---------------------------------------------------------------------------
 
+---Transition to a new state. Performs cleanup when leaving certain states.
+---@param new_state IrisState
+function PM:_transition(new_state)
+    -- Cleanup when leaving rendering state back to idle.
+    if self._state == "rendering" and new_state == "idle" then
+        if self._current_renderer then
+            pcall(self._current_renderer.clear)
+        end
+    end
+    self._state = new_state
+end
+
 ---Hide the preview. Increments generation to cancel in-flight work.
 ---Idempotent and safe from any state.
 function PM:hide()
@@ -137,7 +149,7 @@ function PM:hide()
     self._window_mgr:close()
 
     -- Reset state.
-    self._state = "idle"
+    self:_transition("idle")
     self._current_path = nil
     self._current_stat = nil
     self._current_renderer = nil
@@ -187,6 +199,14 @@ function PM:show(path)
             )
             renderer = nil
         end
+        -- Verify the forced backend supports this extension.
+        if renderer then
+            local ext_found = false
+            for _, e in ipairs(renderer.extensions) do
+                if e:lower() == ext then ext_found = true; break end
+            end
+            if not ext_found then renderer = nil end
+        end
     end
     if not renderer then
         renderer = self._renderer_registry.find_renderer(ext)
@@ -203,7 +223,7 @@ function PM:show(path)
 
     -- Begin async resolve: bump generation, set state, create guard.
     self._generation = self._generation + 1
-    self._state = "resolving"
+    self:_transition("resolving")
 
     local guard = Guard.new(
         self._generation,
@@ -212,15 +232,14 @@ function PM:show(path)
     )
 
     -- Async stat the file.
-    local uv = vim.uv or vim.loop
-    uv.fs_stat(path, function(err, stat)
+    vim.uv.fs_stat(path, function(err, stat)
         vim.schedule(function()
             if not Guard.is_valid(guard, self._generation) then
-                self._state = "idle"
+                self:_transition("idle")
                 return
             end
             if err or not stat then
-                self._state = "idle"
+                self:_transition("idle")
                 return
             end
 
@@ -234,7 +253,7 @@ function PM:show(path)
                     stat.size / 1024 / 1024,
                     self._config.max_file_size_mb
                 )
-                self._state = "idle"
+                self:_transition("idle")
                 return
             end
 
@@ -243,13 +262,24 @@ function PM:show(path)
     end)
 end
 
----Internal render pipeline. Called after stat succeeds.
+---Set the current preview state after a successful render.
+---@param path string
+---@param stat table
+---@param renderer IrisRenderer
+function PM:_set_current(path, stat, renderer)
+    self._current_path = path
+    self._current_stat = stat
+    self._current_renderer = renderer
+end
+
+---Shared render pipeline used by both _render() and _content_swap().
 ---@param path string
 ---@param stat table
 ---@param renderer IrisRenderer
 ---@param guard IrisGuard
-function PM:_render(path, stat, renderer, guard)
-    self._state = "rendering"
+---@param is_swap boolean Whether this is a content swap (window already open)
+function PM:_do_render(path, stat, renderer, guard, is_swap)
+    self:_transition("rendering")
 
     local env = self:_build_env()
     local geometry = renderer.get_geometry(path, stat, env)
@@ -258,38 +288,49 @@ function PM:_render(path, stat, renderer, guard)
 
     -- Check cache first.
     local cached = self._cache:get(path, mtime, max_geo)
-    if cached and cached.fit_geometry then
-        geometry = cached.fit_geometry
+
+    if not is_swap then
+        -- Use cached fit geometry for initial window sizing when available.
+        if cached and cached.fit_geometry then
+            geometry = cached.fit_geometry
+        end
+
+        -- Create anchor and open window.
+        local anchor = self:_create_anchor()
+
+        local title = nil
+        if self._config.title then
+            local fname = vim.fn.fnamemodify(path, ":t")
+            title = " " .. fname .. " "
+        end
+
+        self._window_mgr:open(geometry, anchor, title)
+    else
+        -- Content swap: resize the existing window to the new geometry.
+        self._window_mgr:resize(geometry)
     end
-
-    -- Create anchor and open window.
-    local anchor = self:_create_anchor()
-
-    local title = nil
-    if self._config.title then
-        local fname = vim.fn.fnamemodify(path, ":t")
-        title = " " .. fname .. " "
-    end
-
-    local buf, win = self._window_mgr:open(geometry, anchor, title)
 
     -- If cached output is available for a terminal renderer, replay it.
     if cached and cached.output and renderer.needs_terminal then
-        local chan_ok, chan = pcall(vim.api.nvim_open_term, buf, {})
-        if chan_ok and chan then
+        local chan = self._window_mgr:open_terminal()
+        if chan then
             pcall(vim.api.nvim_chan_send, chan, cached.output)
         end
-        -- Tight-fit to cached geometry.
         if cached.fit_geometry then
             self._window_mgr:resize(cached.fit_geometry)
         end
-        self._state = "visible"
-        self._current_path = path
-        self._current_stat = stat
-        self._current_renderer = renderer
-        if self._config.on_show then
+        self:_transition("visible")
+        self:_set_current(path, stat, renderer)
+        if not is_swap and self._config.on_show then
             pcall(self._config.on_show, path, renderer.name)
         end
+        return
+    end
+
+    local buf = self._window_mgr:get_buf()
+    local win = self._window_mgr:get_win()
+    if not buf or not win then
+        self:hide()
         return
     end
 
@@ -303,17 +344,20 @@ function PM:_render(path, stat, renderer, guard)
         config = self._config,
     }
 
+    -- Open a terminal channel for terminal-based renderers.
+    if renderer.needs_terminal then
+        ctx.chan = self._window_mgr:open_terminal()
+    end
+
     -- Invoke the renderer.
     renderer.render(ctx, function(ok, result)
         vim.schedule(function()
             if not Guard.is_valid(guard, self._generation) then
-                self._state = "idle"
-                self._window_mgr:close()
+                self:hide()
                 return
             end
             if not ok then
-                self._state = "idle"
-                self._window_mgr:close()
+                self:hide()
                 return
             end
 
@@ -329,16 +373,23 @@ function PM:_render(path, stat, renderer, guard)
                 self._cache:put(path, mtime, max_geo, result.output, result.fit or geometry)
             end
 
-            self._state = "visible"
-            self._current_path = path
-            self._current_stat = stat
-            self._current_renderer = renderer
+            self:_transition("visible")
+            self:_set_current(path, stat, renderer)
 
-            if self._config.on_show then
+            if not is_swap and self._config.on_show then
                 pcall(self._config.on_show, path, renderer.name)
             end
         end)
     end)
+end
+
+---Internal render pipeline. Called after stat succeeds (fresh window).
+---@param path string
+---@param stat table
+---@param renderer IrisRenderer
+---@param guard IrisGuard
+function PM:_render(path, stat, renderer, guard)
+    self:_do_render(path, stat, renderer, guard, false)
 end
 
 ---Swap content in an already-open window (fast path for cursor movement).
@@ -351,11 +402,8 @@ function PM:_content_swap(path, ext, renderer)
         pcall(self._current_renderer.clear)
     end
 
-    -- Replace buffer if the renderer type changes.
-    local needs_new_buf = (self._current_renderer ~= renderer)
-    if needs_new_buf then
-        self._window_mgr:replace_buffer()
-    end
+    -- Replace buffer if the renderer type changes or for terminal renderers.
+    self._window_mgr:replace_buffer()
 
     -- Bump generation for the new content.
     self._generation = self._generation + 1
@@ -367,10 +415,10 @@ function PM:_content_swap(path, ext, renderer)
     )
 
     -- Async stat for the new path.
-    local uv = vim.uv or vim.loop
-    uv.fs_stat(path, function(err, stat)
+    vim.uv.fs_stat(path, function(err, stat)
         vim.schedule(function()
             if not Guard.is_valid(guard, self._generation) then
+                self:hide()
                 return
             end
             if err or not stat then
@@ -385,82 +433,7 @@ function PM:_content_swap(path, ext, renderer)
                 return
             end
 
-            self._state = "rendering"
-            local env = self:_build_env()
-            local geometry = renderer.get_geometry(path, stat, env)
-            local mtime = stat.mtime and stat.mtime.sec or 0
-            local max_geo = { width = env.max_width, height = env.max_height }
-
-            -- Check cache.
-            local cached = self._cache:get(path, mtime, max_geo)
-            if cached and cached.output and renderer.needs_terminal then
-                local buf = self._window_mgr:get_buf()
-                if buf then
-                    local chan_ok, chan = pcall(vim.api.nvim_open_term, buf, {})
-                    if chan_ok and chan then
-                        pcall(vim.api.nvim_chan_send, chan, cached.output)
-                    end
-                end
-                if cached.fit_geometry then
-                    self._window_mgr:resize(cached.fit_geometry)
-                end
-                self._state = "visible"
-                self._current_path = path
-                self._current_stat = stat
-                self._current_renderer = renderer
-                return
-            end
-
-            -- Resize window to new geometry.
-            self._window_mgr:resize(geometry)
-
-            -- If we need a fresh buffer for a terminal renderer, replace.
-            if renderer.needs_terminal and not needs_new_buf then
-                self._window_mgr:replace_buffer()
-            end
-
-            local buf = self._window_mgr:get_buf()
-            local win = self._window_mgr:get_win()
-            if not buf or not win then
-                self:hide()
-                return
-            end
-
-            local ctx = {
-                path = path,
-                stat = stat,
-                buf = buf,
-                win = win,
-                geometry = geometry,
-                config = self._config,
-            }
-
-            renderer.render(ctx, function(ok, result)
-                vim.schedule(function()
-                    if not Guard.is_valid(guard, self._generation) then
-                        return
-                    end
-                    if not ok then
-                        self:hide()
-                        return
-                    end
-
-                    result = result or {}
-
-                    if result.fit then
-                        self._window_mgr:resize(result.fit)
-                    end
-
-                    if result.output and renderer.needs_terminal then
-                        self._cache:put(path, mtime, max_geo, result.output, result.fit or geometry)
-                    end
-
-                    self._state = "visible"
-                    self._current_path = path
-                    self._current_stat = stat
-                    self._current_renderer = renderer
-                end)
-            end)
+            self:_do_render(path, stat, renderer, guard, true)
         end)
     end)
 end
@@ -500,6 +473,14 @@ function PM:on_cursor_moved(new_path, new_extension)
         if renderer and not renderer.is_available() then
             renderer = nil
         end
+        -- Verify the forced backend supports this extension.
+        if renderer then
+            local ext_found = false
+            for _, e in ipairs(renderer.extensions) do
+                if e:lower() == ext then ext_found = true; break end
+            end
+            if not ext_found then renderer = nil end
+        end
     end
     if not renderer then
         renderer = self._renderer_registry.find_renderer(ext)
@@ -521,6 +502,11 @@ end
 ---Handle terminal resize. Visible: reposition. Rendering: cancel and restart.
 function PM:on_resize()
     if self._state == "visible" and self._window_mgr:is_open() then
+        if self._current_renderer and self._current_path and self._current_stat then
+            local env = self:_build_env()
+            local geometry = self._current_renderer.get_geometry(self._current_path, self._current_stat, env)
+            self._window_mgr:resize(geometry)
+        end
         local anchor = self:_create_anchor()
         self._window_mgr:reposition(anchor)
     elseif self._state == "rendering" then

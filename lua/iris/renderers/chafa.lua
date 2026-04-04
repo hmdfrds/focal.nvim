@@ -70,10 +70,14 @@ function M.render(ctx, done)
 
     local args = build_args(ctx.path, ctx.geometry.width, ctx.geometry.height, ctx.config)
 
-    _proc = Process.spawn("chafa", args, {
+    local this_proc
+    this_proc = Process.spawn("chafa", args, {
         max_output_bytes = ctx.config.chafa.max_output_bytes,
         on_exit = function(ok, stdout, stderr)
-            _proc = nil
+            -- Only clear _proc if it's still OUR process
+            if _proc == this_proc then
+                _proc = nil
+            end
 
             if not ok then
                 if stderr ~= "" then
@@ -88,14 +92,12 @@ function M.render(ctx, done)
                 return
             end
 
-            -- Open a terminal in the buffer and send chafa output.
-            local chan_ok, chan = pcall(vim.api.nvim_open_term, ctx.buf, {})
-            if not chan_ok or not chan then
+            -- Send chafa output to the terminal channel provided by the preview manager.
+            if not ctx.chan then
                 done(false)
                 return
             end
-
-            pcall(vim.api.nvim_chan_send, chan, stdout)
+            pcall(vim.api.nvim_chan_send, ctx.chan, stdout)
 
             -- Count actual output lines for tight-fit height.
             local line_count = 1
@@ -110,6 +112,7 @@ function M.render(ctx, done)
             })
         end,
     })
+    _proc = this_proc
 end
 
 ---Clear any in-flight render process.

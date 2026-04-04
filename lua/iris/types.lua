@@ -39,6 +39,7 @@
 ---@field win integer
 ---@field geometry IrisGeometry
 ---@field config IrisConfig
+---@field chan integer|nil
 
 ---@class IrisRenderResult
 ---@field fit? IrisGeometry
@@ -59,8 +60,6 @@
 
 ---@class IrisCacheEntry
 ---@field output string
----@field mtime integer
----@field max_geometry IrisGeometry
 ---@field fit_geometry IrisGeometry
 
 ---@class IrisTerminalInfo
