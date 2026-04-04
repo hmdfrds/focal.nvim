@@ -288,7 +288,7 @@ function PM:_render(path, stat, renderer, guard)
         self._current_stat = stat
         self._current_renderer = renderer
         if self._config.on_show then
-            pcall(self._config.on_show, path)
+            pcall(self._config.on_show, path, renderer.name)
         end
         return
     end
@@ -335,7 +335,7 @@ function PM:_render(path, stat, renderer, guard)
             self._current_renderer = renderer
 
             if self._config.on_show then
-                pcall(self._config.on_show, path)
+                pcall(self._config.on_show, path, renderer.name)
             end
         end)
     end)
