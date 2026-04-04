@@ -20,6 +20,8 @@ function M.spawn(cmd, args, opts)
     local stdout_chunks = {}
     local stderr_chunks = {}
     local stdout_bytes = 0
+    local stderr_bytes = 0
+    local max_stderr = 65536 -- 64KB cap for stderr
     local exited = false
 
     local handle, err = vim.uv.spawn(cmd, {
@@ -60,8 +62,13 @@ function M.spawn(cmd, args, opts)
     end)
 
     stderr_pipe:read_start(function(_, data)
-        if data then
+        if data and stderr_bytes < max_stderr then
+            local remaining = max_stderr - stderr_bytes
+            if #data > remaining then
+                data = data:sub(1, remaining)
+            end
             stderr_chunks[#stderr_chunks + 1] = data
+            stderr_bytes = stderr_bytes + #data
         end
     end)
 
@@ -77,7 +84,11 @@ function M.spawn(cmd, args, opts)
                 timer:start(kill_timeout, 0, function()
                     timer:close()
                     if not exited and handle and not handle:is_closing() then
-                        pcall(function() handle:kill("sigkill") end)
+                        if vim.fn.has("win32") == 0 then
+                            pcall(function() handle:kill("sigkill") end)
+                        else
+                            pcall(function() handle:kill("sigterm") end) -- TerminateProcess again
+                        end
                     end
                 end)
             end
