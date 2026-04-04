@@ -69,7 +69,7 @@ M.defaults = {
 local expected_types = {
     enabled = "boolean",
     debug = "boolean",
-    border = "string",
+    border = "string|table",
     winblend = "number",
     zindex = "number",
     title = "boolean",
@@ -154,7 +154,14 @@ local function validate_type(key, value, default)
     if value == nil then
         return default
     end
-    if type(value) ~= expect then
+    local valid = false
+    for part in expect:gmatch("[^|]+") do
+        if type(value) == part then
+            valid = true
+            break
+        end
+    end
+    if not valid then
         warn(
             string.format(
                 "[iris] config.%s must be %s (got %s), using default",
@@ -236,6 +243,20 @@ function M.merge(user_opts)
     -- Cross-field validation.
     validate_min_max(cfg, "min_width", "max_width")
     validate_min_max(cfg, "min_height", "max_height")
+
+    -- Validate chafa sub-table fields.
+    if type(cfg.chafa.format) ~= "string" then
+        warn("[iris] config.chafa.format must be string, using default")
+        cfg.chafa.format = M.defaults.chafa.format
+    end
+    if type(cfg.chafa.animate) ~= "boolean" then
+        warn("[iris] config.chafa.animate must be boolean, using default")
+        cfg.chafa.animate = M.defaults.chafa.animate
+    end
+    if type(cfg.chafa.max_output_bytes) ~= "number" then
+        warn("[iris] config.chafa.max_output_bytes must be number, using default")
+        cfg.chafa.max_output_bytes = M.defaults.chafa.max_output_bytes
+    end
 
     return cfg
 end
