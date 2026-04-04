@@ -26,7 +26,10 @@ function M.register_source(source)
         return false
     end
     if ft_map[source.filetype] then
-        vim.notify(string.format("[focal] Source '%s' overwritten by new registration", source.filetype), vim.log.levels.WARN)
+        vim.notify(
+            string.format("[focal] Source '%s' overwritten by new registration", source.filetype),
+            vim.log.levels.WARN
+        )
     end
     ft_map[source.filetype] = source
     return true

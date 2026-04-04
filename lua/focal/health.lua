@@ -36,7 +36,9 @@ function M.check()
         local major, minor = ver_str:match("(%d+)%.(%d+)")
         if major and minor then
             if tonumber(major) < 1 or (tonumber(major) == 1 and tonumber(minor) < 12) then
-                vim.health.warn("chafa version < 1.12 detected. Some features may not work correctly. Consider upgrading.")
+                vim.health.warn(
+                    "chafa version < 1.12 detected. Some features may not work correctly. Consider upgrading."
+                )
             end
         end
     else
@@ -55,9 +57,13 @@ function M.check()
     local Terminal = require("focal.terminal")
     local term = Terminal.detect()
     if term.has_graphics then
-        vim.health.ok(string.format("Terminal: %s (%s protocol)", term.terminal or "unknown", term.protocol or "unknown"))
+        vim.health.ok(
+            string.format("Terminal: %s (%s protocol)", term.terminal or "unknown", term.protocol or "unknown")
+        )
     else
-        vim.health.info(string.format("Terminal '%s' — no graphics protocol. chafa will be used.", term.terminal or "unknown"))
+        vim.health.info(
+            string.format("Terminal '%s' — no graphics protocol. chafa will be used.", term.terminal or "unknown")
+        )
     end
 
     -- Only warn about tmux when image.nvim is available AND terminal has graphics
@@ -112,16 +118,25 @@ function M.check()
 
     if cfg then
         if cfg.min_width > cfg.max_width then
-            vim.health.warn(string.format("config.min_width (%d) > config.max_width (%d)", cfg.min_width, cfg.max_width))
+            vim.health.warn(
+                string.format("config.min_width (%d) > config.max_width (%d)", cfg.min_width, cfg.max_width)
+            )
         end
         if cfg.min_height > cfg.max_height then
-            vim.health.warn(string.format("config.min_height (%d) > config.max_height (%d)", cfg.min_height, cfg.max_height))
+            vim.health.warn(
+                string.format("config.min_height (%d) > config.max_height (%d)", cfg.min_height, cfg.max_height)
+            )
         end
     end
 
     -- updatetime
     if vim.o.updatetime > 1000 then
-        vim.health.warn(string.format("updatetime is %dms. Consider lowering to 300-500ms for responsive previews.", vim.o.updatetime))
+        vim.health.warn(
+            string.format(
+                "updatetime is %dms. Consider lowering to 300-500ms for responsive previews.",
+                vim.o.updatetime
+            )
+        )
     else
         vim.health.ok(string.format("updatetime: %dms", vim.o.updatetime))
     end
@@ -129,10 +144,16 @@ function M.check()
     -- Cache stats
     if status and status.cache then
         local c = status.cache
-        vim.health.ok(string.format(
-            "Cache: %d entries, %d bytes, %d hits, %d misses, %d evictions",
-            c.entries or 0, c.bytes or 0, c.hits or 0, c.misses or 0, c.evictions or 0
-        ))
+        vim.health.ok(
+            string.format(
+                "Cache: %d entries, %d bytes, %d hits, %d misses, %d evictions",
+                c.entries or 0,
+                c.bytes or 0,
+                c.hits or 0,
+                c.misses or 0,
+                c.evictions or 0
+            )
+        )
     end
 end
 

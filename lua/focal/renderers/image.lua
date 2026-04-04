@@ -64,7 +64,9 @@ end
 ---@param env FocalRenderEnv
 ---@return FocalGeometry
 function M.get_geometry(path, stat, env)
-    if not _image_api then return { width = env.max_width, height = env.max_height } end
+    if not _image_api then
+        return { width = env.max_width, height = env.max_height }
+    end
 
     -- Clear any previous image to avoid leaks (e.g. when cache hit skips render()).
     M.clear()
@@ -129,7 +131,9 @@ end
 ---Clear the current image from display.
 function M.clear()
     if _img then
-        pcall(function() _img:clear() end)
+        pcall(function()
+            _img:clear()
+        end)
         _img = nil
     end
 end

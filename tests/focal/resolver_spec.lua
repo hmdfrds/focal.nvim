@@ -41,8 +41,18 @@ end
 
 T["register_source() overwrites on collision with warning"] = function()
     local check = H.expect_notify("overwritten", vim.log.levels.WARN)
-    Resolver.register_source(H.mock_source({ filetype = "ft", get_path = function() return "/old" end }))
-    Resolver.register_source(H.mock_source({ filetype = "ft", get_path = function() return "/new" end }))
+    Resolver.register_source(H.mock_source({
+        filetype = "ft",
+        get_path = function()
+            return "/old"
+        end,
+    }))
+    Resolver.register_source(H.mock_source({
+        filetype = "ft",
+        get_path = function()
+            return "/new"
+        end,
+    }))
     local source = Resolver.resolve("ft")
     MiniTest.expect.equality(source.get_path(), "/new")
     MiniTest.expect.equality(check(), true)

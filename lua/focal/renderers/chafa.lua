@@ -120,7 +120,8 @@ function M.render(ctx, done)
             if line_count == 0 then
                 line_count = 1
             end
-            local fit_width = max_visible_width > 0 and math.min(max_visible_width, ctx.geometry.width) or ctx.geometry.width
+            local fit_width = max_visible_width > 0 and math.min(max_visible_width, ctx.geometry.width)
+                or ctx.geometry.width
             local fit_height = math.min(line_count, ctx.geometry.height)
 
             done(true, {

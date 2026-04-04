@@ -46,14 +46,8 @@ function WM:open(geometry, anchor, title)
     local height = math.min(geometry.height, max_h)
 
     -- Compute adaptive position.
-    local pos = Geo.adaptive_position(
-        width,
-        height,
-        anchor,
-        self._config.col_offset,
-        self._config.row_offset,
-        vim.o.columns
-    )
+    local pos =
+        Geo.adaptive_position(width, height, anchor, self._config.col_offset, self._config.row_offset, vim.o.columns)
 
     -- Create scratch buffer.
     local buf = vim.api.nvim_create_buf(false, true)
@@ -142,14 +136,8 @@ function WM:reposition(anchor)
     local raw_h = current.height
     local width = type(raw_w) == "table" and raw_w[2] or raw_w
     local height = type(raw_h) == "table" and raw_h[2] or raw_h
-    local pos = Geo.adaptive_position(
-        width,
-        height,
-        anchor,
-        self._config.col_offset,
-        self._config.row_offset,
-        vim.o.columns
-    )
+    local pos =
+        Geo.adaptive_position(width, height, anchor, self._config.col_offset, self._config.row_offset, vim.o.columns)
     pcall(vim.api.nvim_win_set_config, self._win, {
         relative = "cursor",
         row = pos.row,

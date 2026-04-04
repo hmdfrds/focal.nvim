@@ -6,9 +6,15 @@ function H.mock_renderer(overrides)
         extensions = { "png" },
         priority = 50,
         needs_terminal = false,
-        is_available = function() return true end,
-        get_geometry = function(_, _, env) return { width = 20, height = 10 } end,
-        render = function(_, done) done(true, { output = "mock output" }) end,
+        is_available = function()
+            return true
+        end,
+        get_geometry = function(_, _, env)
+            return { width = 20, height = 10 }
+        end,
+        render = function(_, done)
+            done(true, { output = "mock output" })
+        end,
         clear = function() end,
         cleanup = function() end,
     }, overrides or {})
@@ -27,7 +33,9 @@ end
 function H.mock_source(overrides)
     return vim.tbl_extend("force", {
         filetype = "mock_ft",
-        get_path = function() return "/tmp/test.png" end,
+        get_path = function()
+            return "/tmp/test.png"
+        end,
     }, overrides or {})
 end
 

@@ -11,7 +11,9 @@ T["spawn() runs command and collects stdout"] = function()
             done = true
         end,
     })
-    vim.wait(2000, function() return done end)
+    vim.wait(2000, function()
+        return done
+    end)
     MiniTest.expect.equality(result_ok, true)
     MiniTest.expect.equality(vim.trim(result_stdout), "hello")
 end
@@ -25,7 +27,9 @@ T["spawn() collects stderr"] = function()
             done = true
         end,
     })
-    vim.wait(2000, function() return done end)
+    vim.wait(2000, function()
+        return done
+    end)
     MiniTest.expect.equality(vim.trim(result_stderr), "err")
 end
 
@@ -38,7 +42,9 @@ T["spawn() reports failure on non-zero exit"] = function()
             done = true
         end,
     })
-    vim.wait(2000, function() return done end)
+    vim.wait(2000, function()
+        return done
+    end)
     MiniTest.expect.equality(result_ok, false)
 end
 
@@ -51,7 +57,9 @@ T["spawn() returns nil and calls back on spawn failure"] = function()
             done = true
         end,
     })
-    vim.wait(2000, function() return done end)
+    vim.wait(2000, function()
+        return done
+    end)
     MiniTest.expect.equality(handle, nil)
     MiniTest.expect.equality(result_ok, false)
 end
@@ -67,7 +75,9 @@ T["kill() is idempotent"] = function()
     MiniTest.expect.no_equality(handle, nil)
     handle.kill()
     handle.kill()
-    vim.wait(3000, function() return done end)
+    vim.wait(3000, function()
+        return done
+    end)
     MiniTest.expect.equality(done, true)
 end
 

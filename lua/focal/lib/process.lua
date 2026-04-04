@@ -24,7 +24,9 @@ function M.spawn(cmd, args, opts)
 
     -- Guard for fd exhaustion: new_pipe() can return nil.
     if not stdout_pipe then
-        if stderr_pipe then stderr_pipe:close() end
+        if stderr_pipe then
+            stderr_pipe:close()
+        end
         vim.schedule(function()
             opts.on_exit(false, "", "failed to create stdout pipe")
         end)
@@ -55,8 +57,12 @@ function M.spawn(cmd, args, opts)
     --- Called when any of the three conditions completes.
     --- Only fires on_exit once all three are done.
     local function maybe_finish()
-        if finished then return end
-        if not stdout_done or not stderr_done or exit_code == nil then return end
+        if finished then
+            return
+        end
+        if not stdout_done or not stderr_done or exit_code == nil then
+            return
+        end
         finished = true
 
         if handle and not handle:is_closing() then
@@ -104,7 +110,9 @@ function M.spawn(cmd, args, opts)
                 stdout_done = true
                 -- Kill the process since we're discarding its output
                 if exit_code == nil and handle and not handle:is_closing() then
-                    pcall(function() handle:kill("sigterm") end)
+                    pcall(function()
+                        handle:kill("sigterm")
+                    end)
                 end
                 maybe_finish()
                 return
@@ -143,19 +151,29 @@ function M.spawn(cmd, args, opts)
 
     return {
         kill = function()
-            if killed then return end
+            if killed then
+                return
+            end
             killed = true
             if exit_code == nil and handle and not handle:is_closing() then
-                pcall(function() handle:kill("sigterm") end)
+                pcall(function()
+                    handle:kill("sigterm")
+                end)
                 local timer = vim.uv.new_timer()
-                if not timer then return end
+                if not timer then
+                    return
+                end
                 timer:start(kill_timeout, 0, function()
                     timer:close()
                     if exit_code == nil and handle and not handle:is_closing() then
                         if not is_windows then
-                            pcall(function() handle:kill("sigkill") end)
+                            pcall(function()
+                                handle:kill("sigkill")
+                            end)
                         else
-                            pcall(function() handle:kill("sigterm") end) -- TerminateProcess again
+                            pcall(function()
+                                handle:kill("sigterm")
+                            end) -- TerminateProcess again
                         end
                     end
                 end)

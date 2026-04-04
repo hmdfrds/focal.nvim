@@ -28,7 +28,13 @@ T["find_renderer() returns highest priority available"] = function()
 end
 
 T["find_renderer() skips unavailable"] = function()
-    Registry.register_renderer(H.mock_renderer({ name = "dead", priority = 100, is_available = function() return false end }))
+    Registry.register_renderer(H.mock_renderer({
+        name = "dead",
+        priority = 100,
+        is_available = function()
+            return false
+        end,
+    }))
     Registry.register_renderer(H.mock_renderer({ name = "alive", priority = 50 }))
     MiniTest.expect.equality(Registry.find_renderer("png").name, "alive")
 end
@@ -88,7 +94,9 @@ end
 T["is_available pcall catches errors"] = function()
     Registry.register_renderer(H.mock_renderer({
         name = "crashy",
-        is_available = function() error("boom") end,
+        is_available = function()
+            error("boom")
+        end,
     }))
     local r = Registry.find_renderer("png")
     MiniTest.expect.equality(r, nil)

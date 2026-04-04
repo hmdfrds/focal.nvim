@@ -38,18 +38,21 @@ T["max_available() with zero margin"] = function()
 end
 
 T["adaptive_position() places right and below by default"] = function()
-    local pos = Geo.adaptive_position(20, 10, { screen_row = 5, screen_col = 10, win_width = 80, win_height = 40 }, 4, 1, 80)
+    local pos =
+        Geo.adaptive_position(20, 10, { screen_row = 5, screen_col = 10, win_width = 80, win_height = 40 }, 4, 1, 80)
     MiniTest.expect.equality(pos.col, 4)
     MiniTest.expect.equality(pos.row, 1)
 end
 
 T["adaptive_position() flips left when overflow right"] = function()
-    local pos = Geo.adaptive_position(20, 10, { screen_row = 5, screen_col = 70, win_width = 80, win_height = 40 }, 4, 1, 80)
+    local pos =
+        Geo.adaptive_position(20, 10, { screen_row = 5, screen_col = 70, win_width = 80, win_height = 40 }, 4, 1, 80)
     MiniTest.expect.equality(pos.col, -24)
 end
 
 T["adaptive_position() flips above when overflow below"] = function()
-    local pos = Geo.adaptive_position(20, 10, { screen_row = 35, screen_col = 10, win_width = 80, win_height = 40 }, 4, 1, 80)
+    local pos =
+        Geo.adaptive_position(20, 10, { screen_row = 35, screen_col = 10, win_width = 80, win_height = 40 }, 4, 1, 80)
     MiniTest.expect.equality(pos.row, -11)
 end
 
