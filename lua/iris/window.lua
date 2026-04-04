@@ -11,10 +11,6 @@ local M = {}
 local WM = {}
 WM.__index = WM
 
--- Define highlight groups with default = true so users can override.
-vim.api.nvim_set_hl(0, "IrisFloat", { default = true, link = "NormalFloat" })
-vim.api.nvim_set_hl(0, "IrisBorder", { default = true, link = "FloatBorder" })
-
 ---Create a new window manager instance.
 ---@param config table
 ---@return table
@@ -34,6 +30,10 @@ end
 ---@param title? string
 ---@return integer buf, integer win
 function WM:open(geometry, anchor, title)
+    -- Define highlight groups with default = true so users can override.
+    vim.api.nvim_set_hl(0, "IrisFloat", { default = true, link = "NormalFloat" })
+    vim.api.nvim_set_hl(0, "IrisBorder", { default = true, link = "FloatBorder" })
+
     -- Close existing window if open.
     if self:is_open() then
         self:close()
@@ -52,7 +52,8 @@ function WM:open(geometry, anchor, title)
         height,
         anchor,
         self._config.col_offset,
-        self._config.row_offset
+        self._config.row_offset,
+        vim.o.columns
     )
 
     -- Create scratch buffer.
@@ -88,42 +89,53 @@ function WM:open(geometry, anchor, title)
     return buf, win
 end
 
----Resize the current window.
+---Resize the current window. Clamps geometry to terminal size.
 ---@param geometry IrisGeometry
 function WM:resize(geometry)
     if not self:is_open() then
         return
     end
+    -- Clamp geometry the same way open() does.
+    local margin = Geo.overflow_margin(self._config.border)
+    local max_w = math.max(1, vim.o.columns - margin)
+    local max_h = math.max(1, vim.o.lines - margin)
+    local width = math.min(geometry.width, max_w)
+    local height = math.min(geometry.height, max_h)
+
     local current = vim.api.nvim_win_get_config(self._win)
     vim.api.nvim_win_set_config(self._win, {
         relative = current.relative,
         row = current.row,
         col = current.col,
-        width = geometry.width,
-        height = geometry.height,
+        width = width,
+        height = height,
     })
 end
 
 ---Reposition the window based on a new anchor.
+---Recomputes position from scratch instead of reading boxed values.
 ---@param anchor IrisCursorAnchor
 function WM:reposition(anchor)
     if not self:is_open() then
         return
     end
     local current = vim.api.nvim_win_get_config(self._win)
+    local width = current.width
+    local height = current.height
     local pos = Geo.adaptive_position(
-        current.width,
-        current.height,
+        width,
+        height,
         anchor,
         self._config.col_offset,
-        self._config.row_offset
+        self._config.row_offset,
+        vim.o.columns
     )
     vim.api.nvim_win_set_config(self._win, {
         relative = "cursor",
         row = pos.row,
         col = pos.col,
-        width = current.width,
-        height = current.height,
+        width = width,
+        height = height,
     })
 end
 
