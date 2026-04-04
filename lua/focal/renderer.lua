@@ -37,29 +37,36 @@ end
 --- @param renderer table
 --- @return boolean
 local function validate(renderer)
-    if type(renderer.name) ~= "string" or renderer.name == "" then
+    local function fail(reason)
+        vim.notify(
+            string.format("[focal] Renderer validation failed for '%s': %s", tostring(renderer.name), reason),
+            vim.log.levels.WARN
+        )
         return false
+    end
+    if type(renderer.name) ~= "string" or renderer.name == "" then
+        return fail("name must be a non-empty string")
     end
     if type(renderer.extensions) ~= "table" or #renderer.extensions == 0 then
-        return false
+        return fail("extensions must be a non-empty table")
     end
     if type(renderer.priority) ~= "number" then
-        return false
+        return fail("priority must be a number")
     end
     if type(renderer.is_available) ~= "function" then
-        return false
+        return fail("is_available must be a function")
     end
     if type(renderer.get_geometry) ~= "function" then
-        return false
+        return fail("get_geometry must be a function")
     end
     if type(renderer.render) ~= "function" then
-        return false
+        return fail("render must be a function")
     end
     if type(renderer.clear) ~= "function" then
-        return false
+        return fail("clear must be a function")
     end
     if type(renderer.cleanup) ~= "function" then
-        return false
+        return fail("cleanup must be a function")
     end
     return true
 end
@@ -152,12 +159,28 @@ function M.get_all_renderers()
     return result
 end
 
---- Load built-in renderer modules.
+--- Load built-in renderer modules. Skips already-registered names.
 function M.load_builtins()
     for _, path in ipairs(builtin_paths) do
         local ok, mod = pcall(require, path)
         if ok and mod and type(mod.register) == "function" then
+            -- Temporarily wrap register_renderer to prevent duplicates.
+            local orig = M.register_renderer
+            M.register_renderer = function(renderer)
+                local exists = false
+                for _, r in ipairs(renderers) do
+                    if r.name == renderer.name then
+                        exists = true
+                        break
+                    end
+                end
+                if not exists then
+                    return orig(renderer)
+                end
+                return true
+            end
             mod.register(M)
+            M.register_renderer = orig
         end
     end
 end
