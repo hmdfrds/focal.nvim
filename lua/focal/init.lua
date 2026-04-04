@@ -16,9 +16,10 @@ local _preview_mgr = nil ---@type table|nil
 local _setup_done = false
 local _debounce_timer = nil ---@type uv_timer_t|nil
 local _resize_timer = nil ---@type uv_timer_t|nil
+local _oneshot_autocmd_id = nil ---@type integer|nil
 
 -- Deferred-require holders — populated lazily in setup().
-local _config_mod = nil  -- the focal.config module (schema/merge logic)
+local _config_mod = nil -- the focal.config module (schema/merge logic)
 local _resolver = nil
 local _renderer = nil
 local _window = nil
@@ -41,6 +42,17 @@ local function cancel_debounce()
             _debounce_timer:close()
         end
         _debounce_timer = nil
+    end
+end
+
+---Cancel the resize debounce timer if running.
+local function cancel_resize_debounce()
+    if _resize_timer then
+        _resize_timer:stop()
+        if not _resize_timer:is_closing() then
+            _resize_timer:close()
+        end
+        _resize_timer = nil
     end
 end
 
@@ -113,6 +125,7 @@ end
 ---Disable previews at runtime and hide any active preview.
 function M.disable()
     cancel_debounce()
+    cancel_resize_debounce()
     if _cfg then
         _cfg.enabled = false
     end
@@ -154,11 +167,17 @@ function M.show(path)
     end
     _preview_mgr:show(path)
     if path then
+        -- Clear any previous one-shot autocmd to prevent accumulation.
+        if _oneshot_autocmd_id then
+            pcall(vim.api.nvim_del_autocmd, _oneshot_autocmd_id)
+            _oneshot_autocmd_id = nil
+        end
         local buf = vim.api.nvim_get_current_buf()
-        vim.api.nvim_create_autocmd("CursorMoved", {
+        _oneshot_autocmd_id = vim.api.nvim_create_autocmd("CursorMoved", {
             buffer = buf,
             once = true,
             callback = function()
+                _oneshot_autocmd_id = nil
                 M.hide()
             end,
         })
@@ -197,15 +216,21 @@ local function on_cursor_hold()
     if _cfg.debounce_ms > 0 then
         cancel_debounce()
         _debounce_timer = vim.uv.new_timer()
-        if not _debounce_timer then return end
-        _debounce_timer:start(_cfg.debounce_ms, 0, vim.schedule_wrap(function()
-            cancel_debounce()
-            if not _cfg or not _cfg.enabled then
-                return
-            end
-            -- Re-read cursor position at fire time, not capture time.
-            _preview_mgr:show()
-        end))
+        if not _debounce_timer then
+            return
+        end
+        _debounce_timer:start(
+            _cfg.debounce_ms,
+            0,
+            vim.schedule_wrap(function()
+                cancel_debounce()
+                if not _cfg or not _cfg.enabled then
+                    return
+                end
+                -- Re-read cursor position at fire time, not capture time.
+                _preview_mgr:show()
+            end)
+        )
     else
         _preview_mgr:show()
     end
@@ -240,26 +265,21 @@ local function on_resize()
     end
 end
 
----Cancel the resize debounce timer if running.
-local function cancel_resize_debounce()
-    if _resize_timer then
-        _resize_timer:stop()
-        if not _resize_timer:is_closing() then
-            _resize_timer:close()
-        end
-        _resize_timer = nil
-    end
-end
-
 ---Debounced resize/scroll handler (50ms).
 local function on_resize_debounced()
     cancel_resize_debounce()
     _resize_timer = vim.uv.new_timer()
-    if not _resize_timer then return end
-    _resize_timer:start(50, 0, vim.schedule_wrap(function()
-        cancel_resize_debounce()
-        on_resize()
-    end))
+    if not _resize_timer then
+        return
+    end
+    _resize_timer:start(
+        50,
+        0,
+        vim.schedule_wrap(function()
+            cancel_resize_debounce()
+            on_resize()
+        end)
+    )
 end
 
 ---Cleanup handler for VimLeavePre.
@@ -418,7 +438,10 @@ function M.setup(user_opts)
             if r then
                 local exists = false
                 for _, pr in ipairs(_pending_renderers) do
-                    if pr.name == r.name then exists = true; break end
+                    if pr.name == r.name then
+                        exists = true
+                        break
+                    end
                 end
                 if not exists then
                     table.insert(_pending_renderers, r)
@@ -456,10 +479,7 @@ function M.setup(user_opts)
     -- Warn if zero renderers available.
     local supported = _renderer.get_supported_extensions()
     if #supported == 0 then
-        vim.notify(
-            "[focal] No renderers available. Previews will not work.",
-            vim.log.levels.WARN
-        )
+        vim.notify("[focal] No renderers available. Previews will not work.", vim.log.levels.WARN)
     end
 
     -- Create fresh WindowManager and PreviewManager.
