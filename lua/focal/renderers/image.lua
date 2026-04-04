@@ -40,14 +40,17 @@ function M.is_available()
         return false
     end
 
-    -- Verify image.nvim has actually been set up.
     -- image.nvim exposes from_file even before setup(), but it throws
-    -- "image.nvim is not setup" when called. Guard against this.
+    -- "image.nvim is not setup" when called. Auto-init if needed so users
+    -- don't need opts = {} on the image.nvim dependency.
     if type(api.setup) == "function" then
         local probe_ok, probe_err = pcall(api.from_file, "", { id = "focal-setup-probe" })
         if not probe_ok and type(probe_err) == "string" and probe_err:find("not setup") then
-            _available = false
-            return false
+            local setup_ok = pcall(api.setup, {})
+            if not setup_ok then
+                _available = false
+                return false
+            end
         end
     end
 

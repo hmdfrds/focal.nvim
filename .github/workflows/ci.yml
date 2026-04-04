@@ -18,7 +18,7 @@ jobs:
       - uses: JohnnyMorganz/stylua-action@v4
         with:
           args: --check lua/ tests/
-      - uses: NTBBloodbath/selene-action@v2
+      - uses: NTBBloodbath/selene-action@v1.0.0
         with:
           args: lua/
 
