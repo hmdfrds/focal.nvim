@@ -17,6 +17,8 @@ function M.get_path()
     local item_ok, item = pcall(picker.current, picker)
     if not item_ok or not item then return nil end
 
+    if item.type == "directory" then return nil end
+
     local path = item.file or item._path
     if not path then return nil end
 
