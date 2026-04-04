@@ -27,7 +27,7 @@ body:
       description: "Run `:FocalStatus` and paste the output here"
       render: lua
     validations:
-      required: false
+      required: true
 
   - type: textarea
     id: checkhealth
@@ -36,7 +36,7 @@ body:
       description: "Run `:checkhealth focal` and paste the output here"
       render: text
     validations:
-      required: false
+      required: true
 
   - type: textarea
     id: steps

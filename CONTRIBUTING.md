@@ -12,8 +12,14 @@ Thanks for your interest in contributing! This document covers the basics.
    ```
 
 2. Install tooling:
-   - [stylua](https://github.com/JohnnyMorganz/StyLua) for formatting
-   - [selene](https://github.com/Kampfkarren/selene) for linting
+   ```sh
+   # Via Cargo (Rust toolchain required)
+   cargo install stylua selene
+
+   # Or download binaries from:
+   # stylua: https://github.com/JohnnyMorganz/StyLua/releases
+   # selene: https://github.com/Kampfkarren/selene/releases
+   ```
    - Neovim >= 0.10 for running tests
 
 ## Running Tests

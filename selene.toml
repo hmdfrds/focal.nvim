@@ -1,1 +1,2 @@
+# vim.yml in project root provides the global definitions (vim, MiniTest)
 std = "vim"

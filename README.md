@@ -2,6 +2,8 @@
 
 > Universal file preview for Neovim. Hover over a file in any explorer, see a preview.
 
+![focal.nvim demo](assets/bruh.gif)
+
 focal.nvim is an extensible preview framework with dual backends (pixel-perfect via image.nvim, Unicode fallback via chafa) and a plugin adapter system that works with any file explorer.
 
 ---
