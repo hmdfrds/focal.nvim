@@ -1,0 +1,34 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: JohnnyMorganz/stylua-action@v4
+        with:
+          args: --check lua/ tests/
+      - uses: NTBBloodbath/selene-action@v2
+        with:
+          args: lua/
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        neovim: ['v0.10.0', 'stable', 'nightly']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.neovim }}
+      - name: Install chafa
+        run: sudo apt-get install -y chafa
+      - name: Run tests
+        run: make test

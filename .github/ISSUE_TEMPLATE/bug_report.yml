@@ -1,0 +1,68 @@
+name: Bug Report
+description: Report a bug in iris.nvim
+labels: [bug]
+body:
+  - type: input
+    id: neovim-version
+    attributes:
+      label: Neovim version
+      description: "Output of `nvim --version` (first line)"
+      placeholder: "NVIM v0.10.0"
+    validations:
+      required: true
+
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal emulator
+      description: "Name and version of your terminal"
+      placeholder: "kitty 0.35.1"
+    validations:
+      required: true
+
+  - type: textarea
+    id: iris-status
+    attributes:
+      label: ":IrisStatus output"
+      description: "Run `:IrisStatus` and paste the output here"
+      render: lua
+    validations:
+      required: false
+
+  - type: textarea
+    id: checkhealth
+    attributes:
+      label: ":checkhealth iris output"
+      description: "Run `:checkhealth iris` and paste the output here"
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: "Minimal steps to trigger the bug"
+      placeholder: |
+        1. Open nvim with iris.nvim configured
+        2. Open neo-tree
+        3. Hover over an image file
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: "What you expected to happen"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: "What actually happened"
+    validations:
+      required: true
