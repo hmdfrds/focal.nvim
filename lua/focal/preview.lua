@@ -258,8 +258,11 @@ function PM:show(path)
         return
     end
 
-    -- If already visible with an open window, use content swap for speed.
+    -- If already visible with an open window for the same path, nothing to do.
     if self._state == "visible" and self._window_mgr:is_open() then
+        if path == self._current_path then
+            return
+        end
         self:_content_swap(path, ext, renderer)
         return
     end
@@ -369,9 +372,11 @@ function PM:_do_render(path, stat, renderer, guard, is_swap)
     -- If cached output is available for a terminal renderer, replay it.
     if cached and cached.output and renderer.needs_terminal then
         local chan = self._window_mgr:open_terminal()
-        if chan then
-            pcall(vim.api.nvim_chan_send, chan, cached.output)
+        if not chan then
+            self:hide()
+            return
         end
+        pcall(vim.api.nvim_chan_send, chan, cached.output)
         if cached.fit_geometry then
             self._window_mgr:resize(cached.fit_geometry)
         end
