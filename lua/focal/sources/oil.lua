@@ -20,7 +20,14 @@ function M.get_path()
         return nil
     end
 
-    return vim.fs.joinpath(dir, entry.name)
+    local full = vim.fs.joinpath(dir, entry.name)
+
+    -- Symlinks could point to directories — filter those out.
+    if entry.type == "link" and vim.fn.isdirectory(full) == 1 then
+        return nil
+    end
+
+    return full
 end
 
 return M

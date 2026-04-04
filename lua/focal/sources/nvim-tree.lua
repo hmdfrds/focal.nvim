@@ -15,7 +15,9 @@ function M.get_path()
         return nil
     end
 
-    if node.absolute_path and (node.type == "file" or node.type == "link") then
+    -- Allow files and file-symlinks. Directory symlinks also have type="link"
+    -- but they have a `nodes` table (their children). Exclude those.
+    if node.absolute_path and (node.type == "file" or (node.type == "link" and not node.nodes)) then
         return node.absolute_path
     end
 
