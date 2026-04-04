@@ -31,6 +31,7 @@ function M.new(deps)
         _max_file_bytes = deps.config.max_file_size_mb * 1024 * 1024,
         _render_timer = nil, ---@type uv_timer_t|nil
         _pending_path = nil, ---@type string|nil  path being rendered (set before _current_path)
+        _hiding = false, ---@type boolean  reentrancy guard for hide()
     }, PM)
 end
 
@@ -197,6 +198,11 @@ end
 ---Hide the preview. Increments generation to cancel in-flight work.
 ---Idempotent and safe from any state.
 function PM:hide()
+    if self._hiding then
+        return
+    end
+    self._hiding = true
+
     self._generation = self._generation + 1
 
     -- Cancel render timeout timer.
@@ -224,6 +230,8 @@ function PM:hide()
             vim.notify("[focal] on_hide callback error: " .. tostring(err), vim.log.levels.WARN)
         end
     end
+
+    self._hiding = false
 end
 
 ---Show a preview. If path is nil, resolve from the current source adapter.
