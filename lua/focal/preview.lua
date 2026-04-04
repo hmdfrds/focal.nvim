@@ -137,7 +137,8 @@ function PM:_resolve_renderer(ext)
     local renderer
     if self._config.backend and self._config.backend ~= "auto" then
         renderer = self._renderer_registry.find_by_name(self._config.backend)
-        if not renderer or not renderer.is_available() then
+        local avail_ok, avail = pcall(renderer.is_available)
+        if not renderer or not (avail_ok and avail) then
             self:_notify_once(
                 "backend_unavail_" .. self._config.backend,
                 vim.log.levels.ERROR,
@@ -229,10 +230,11 @@ function PM:show(path)
         if not source then
             return
         end
-        path = source.get_path()
-        if not path then
+        local src_ok, src_path = pcall(source.get_path)
+        if not src_ok or not src_path then
             return
         end
+        path = src_path
     end
 
     -- Extract extension and find a renderer.
@@ -266,8 +268,7 @@ function PM:show(path)
     vim.uv.fs_stat(path, function(err, stat)
         vim.schedule(function()
             if not Guard.is_valid(guard, self._generation) then
-                self:_transition("idle")
-                return
+                return -- stale: newer operation owns the state
             end
             if err or not stat then
                 self:_transition("idle")
