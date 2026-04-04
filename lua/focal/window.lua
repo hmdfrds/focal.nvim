@@ -28,9 +28,8 @@ end
 ---@param geometry FocalGeometry
 ---@param anchor FocalCursorAnchor
 ---@param title? string
----@return integer buf, integer win
+---@return integer|nil buf, integer|nil win
 function WM:open(geometry, anchor, title)
-    -- Define highlight groups with default = true so users can override.
     vim.api.nvim_set_hl(0, "FocalFloat", { default = true, link = "NormalFloat" })
     vim.api.nvim_set_hl(0, "FocalBorder", { default = true, link = "FloatBorder" })
 
@@ -70,14 +69,20 @@ function WM:open(geometry, anchor, title)
         style = "minimal",
         focusable = false,
         zindex = self._config.zindex,
+        noautocmd = true,
     }
 
-    if title then
+    -- Title requires a visible border; skip when border is "none".
+    if title and self._config.border ~= "none" then
         win_config.title = title
     end
 
     -- Open the float.
-    local win = vim.api.nvim_open_win(buf, false, win_config)
+    local ok, win = pcall(vim.api.nvim_open_win, buf, false, win_config)
+    if not ok then
+        pcall(vim.api.nvim_buf_delete, buf, { force = true })
+        return nil, nil
+    end
 
     -- Apply highlight groups and winblend.
     vim.api.nvim_set_option_value("winhighlight", "Normal:FocalFloat,FloatBorder:FocalBorder", { win = win })
@@ -102,11 +107,8 @@ function WM:resize(geometry)
     local width = math.min(geometry.width, max_w)
     local height = math.min(geometry.height, max_h)
 
-    local current = vim.api.nvim_win_get_config(self._win)
-    vim.api.nvim_win_set_config(self._win, {
-        relative = current.relative,
-        row = current.row,
-        col = current.col,
+    -- Only pass width and height; Neovim preserves unspecified keys.
+    pcall(vim.api.nvim_win_set_config, self._win, {
         width = width,
         height = height,
     })
@@ -119,9 +121,15 @@ function WM:reposition(anchor)
     if not self:is_open() then
         return
     end
-    local current = vim.api.nvim_win_get_config(self._win)
-    local width = current.width
-    local height = current.height
+    local cfg_ok, current = pcall(vim.api.nvim_win_get_config, self._win)
+    if not cfg_ok then
+        return
+    end
+    -- Unbox width/height safely: nvim_win_get_config may return boxed {false, N} values.
+    local raw_w = current.width
+    local raw_h = current.height
+    local width = type(raw_w) == "table" and raw_w[2] or raw_w
+    local height = type(raw_h) == "table" and raw_h[2] or raw_h
     local pos = Geo.adaptive_position(
         width,
         height,
@@ -130,7 +138,7 @@ function WM:reposition(anchor)
         self._config.row_offset,
         vim.o.columns
     )
-    vim.api.nvim_win_set_config(self._win, {
+    pcall(vim.api.nvim_win_set_config, self._win, {
         relative = "cursor",
         row = pos.row,
         col = pos.col,
@@ -193,9 +201,15 @@ function WM:close()
 end
 
 ---Open a terminal in the current buffer.
----@return integer channel
+---@return integer|nil channel
 function WM:open_terminal()
-    local chan = vim.api.nvim_open_term(self._buf, {})
+    if not self:is_open() or not self._buf or not vim.api.nvim_buf_is_valid(self._buf) then
+        return nil
+    end
+    local ok, chan = pcall(vim.api.nvim_open_term, self._buf, {})
+    if not ok or not chan or chan <= 0 then
+        return nil
+    end
     self._chan = chan
     return chan
 end
