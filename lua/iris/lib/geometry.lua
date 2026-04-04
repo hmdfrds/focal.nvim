@@ -57,10 +57,11 @@ end
 ---@param anchor IrisCursorAnchor
 ---@param col_offset integer Horizontal gap
 ---@param row_offset integer Vertical gap
+---@param editor_cols integer Editor column count (vim.o.columns)
 ---@return { row: integer, col: integer }
-function M.adaptive_position(width, height, anchor, col_offset, row_offset)
+function M.adaptive_position(width, height, anchor, col_offset, row_offset, editor_cols)
     local col = col_offset
-    if anchor.screen_col + width + col_offset > vim.o.columns then
+    if anchor.screen_col + width + col_offset > editor_cols then
         col = -width - col_offset
     end
     local row = row_offset
