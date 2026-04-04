@@ -21,8 +21,14 @@ function M.check()
     if vim.fn.executable("chafa") == 1 then
         vim.health.ok("chafa is installed.")
         has_any = true
-        local ver = vim.fn.system("chafa --version"):match("^[^\n]+") or "unknown"
-        vim.health.info("chafa version: " .. ver)
+        local ver_str = vim.fn.system("chafa --version"):match("^[^\n]+") or "unknown"
+        vim.health.info("chafa version: " .. ver_str)
+        local major, minor = ver_str:match("(%d+)%.(%d+)")
+        if major and minor then
+            if tonumber(major) < 1 or (tonumber(major) == 1 and tonumber(minor) < 12) then
+                vim.health.warn("chafa version < 1.12 detected. Some features may not work correctly. Consider upgrading.")
+            end
+        end
     else
         vim.health.info("chafa is not installed.")
     end
@@ -64,6 +70,31 @@ function M.check()
         vim.health.warn(string.format("updatetime is %dms. Consider lowering to 300-500ms for responsive previews.", vim.o.updatetime))
     else
         vim.health.ok(string.format("updatetime: %dms", vim.o.updatetime))
+    end
+
+    -- 5. Cache stats (if setup has been called)
+    local iris_ok, iris = pcall(require, "iris")
+    if iris_ok and iris.status then
+        local status = iris.status()
+        if status and status.cache then
+            local c = status.cache
+            vim.health.ok(string.format(
+                "Cache: %d entries, %d bytes, %d hits, %d misses, %d evictions",
+                c.entries or 0, c.bytes or 0, c.hits or 0, c.misses or 0, c.evictions or 0
+            ))
+        end
+    end
+
+    -- 6. Config cross-validation
+    local Config = require("iris.config")
+    local cfg_ok, cfg = pcall(Config.merge, {})
+    if cfg_ok and cfg then
+        if cfg.min_width > cfg.max_width then
+            vim.health.warn(string.format("config.min_width (%d) > config.max_width (%d)", cfg.min_width, cfg.max_width))
+        end
+        if cfg.min_height > cfg.max_height then
+            vim.health.warn(string.format("config.min_height (%d) > config.max_height (%d)", cfg.min_height, cfg.max_height))
+        end
     end
 end
 
