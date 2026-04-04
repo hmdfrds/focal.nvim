@@ -108,11 +108,23 @@ function M.spawn(cmd, args, opts)
                     stdout_pipe:close()
                 end
                 stdout_done = true
-                -- Kill the process since we're discarding its output
+                -- Kill the process since we're discarding its output.
+                -- Include SIGKILL escalation in case SIGTERM is ignored.
                 if exit_code == nil and handle and not handle:is_closing() then
                     pcall(function()
                         handle:kill("sigterm")
                     end)
+                    local esc_timer = vim.uv.new_timer()
+                    if esc_timer then
+                        esc_timer:start(kill_timeout, 0, function()
+                            esc_timer:close()
+                            if exit_code == nil and handle and not handle:is_closing() then
+                                pcall(function()
+                                    handle:kill(is_windows and "sigterm" or "sigkill")
+                                end)
+                            end
+                        end)
+                    end
                 end
                 maybe_finish()
                 return
