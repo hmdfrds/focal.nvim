@@ -1,137 +1,429 @@
----@mod focal "Focal.nvim: Neovim Image Previewer"
+---@mod focal "focal.nvim — Universal File Preview"
 ---@brief [[
---- Image previewer for Neovim file explorers.
----
---- Features:
---- - Pixel-perfect rendering
---- - Window pooling for flicker-free updates
---- - Async I/O for non-blocking performance
---- - Multi-adapter support (Neo-tree, Nvim-tree, Oil, Snacks)
+--- Hover over a file in any explorer, see a preview.
 ---@brief ]]
 
-local Config = require("focal.config")
-local Resolver = require("focal.resolver")
-local UI = require("focal.ui")
-local Utils = require("focal.utils")
-
 local M = {}
+M.version = "1.0.0"
 
----@type FocalConfig
-M.opts = Config.defaults
+-- ---------------------------------------------------------------------------
+-- Private state
+-- ---------------------------------------------------------------------------
 
----Register a custom adapter for an unsupported file explorer.
----@param adapter FocalAdapter
----@return boolean success
-M.register_adapter = Resolver.register_adapter
+local _pending_sources = {}
+local _pending_renderers = {}
+local _preview_mgr = nil ---@type table|nil
+local _setup_done = false
+local _debounce_timer = nil ---@type uv_timer_t|nil
 
----Setup focal.nvim
----@param user_opts? FocalConfig
-function M.setup(user_opts)
-    -- 1. Configuration
-    M.opts = Config.merge(user_opts)
-    Utils._debug = M.opts.debug
+-- Deferred-require holders — populated lazily in setup().
+local _config = nil
+local _resolver = nil
+local _renderer = nil
+local _window = nil
+local _preview = nil
+local _cache_mod = nil
+local _geometry = nil
 
-    -- 2. Extensions Lookup
-    local extensions_lookup = {}
-    if M.opts.extensions then
-        for _, ext in ipairs(M.opts.extensions) do
-            extensions_lookup[ext:lower()] = true
+-- Merged config table (the result of config.merge()).
+local _cfg = nil
+
+-- ---------------------------------------------------------------------------
+-- Helpers
+-- ---------------------------------------------------------------------------
+
+---Cancel the debounce timer if running.
+local function cancel_debounce()
+    if _debounce_timer then
+        _debounce_timer:stop()
+        _debounce_timer:close()
+        _debounce_timer = nil
+    end
+end
+
+---Resolve the path under the cursor via the source adapter.
+---@return string|nil path, string|nil ext
+local function resolve_cursor_path()
+    local ft = vim.bo.filetype
+    local source = _resolver.resolve(ft)
+    if not source then
+        return nil, nil
+    end
+    local path = source.get_path()
+    if not path then
+        return nil, nil
+    end
+    local ext = _geometry.extract_extension(path)
+    if ext then
+        ext = ext:lower()
+    end
+    return path, ext
+end
+
+-- ---------------------------------------------------------------------------
+-- Public API: register_source / register_renderer
+-- ---------------------------------------------------------------------------
+
+---Register a source adapter. Before setup(), queued and drained later.
+---@param source FocalSource
+---@return boolean
+function M.register_source(source)
+    if not _setup_done then
+        _pending_sources[#_pending_sources + 1] = source
+        return true
+    end
+    return _resolver.register_source(source)
+end
+
+---Register a renderer. Before setup(), queued and drained later.
+---@param renderer FocalRenderer
+---@return boolean
+function M.register_renderer(renderer)
+    if not _setup_done then
+        _pending_renderers[#_pending_renderers + 1] = renderer
+        return true
+    end
+    return _renderer.register_renderer(renderer)
+end
+
+-- ---------------------------------------------------------------------------
+-- Enable / disable / toggle
+-- ---------------------------------------------------------------------------
+
+---Enable previews at runtime.
+function M.enable()
+    if _cfg then
+        _cfg.enabled = true
+    end
+end
+
+---Disable previews at runtime and hide any active preview.
+function M.disable()
+    if _cfg then
+        _cfg.enabled = false
+    end
+    if _preview_mgr then
+        _preview_mgr:hide()
+    end
+end
+
+---Toggle enabled state.
+function M.toggle()
+    if _cfg and _cfg.enabled then
+        M.disable()
+    else
+        M.enable()
+    end
+end
+
+---Return whether previews are currently enabled.
+---@return boolean
+function M.is_enabled()
+    return _cfg ~= nil and _cfg.enabled
+end
+
+-- ---------------------------------------------------------------------------
+-- Show / hide
+-- ---------------------------------------------------------------------------
+
+---Show a preview. If path is given, also creates a one-shot CursorMoved
+---autocmd on the current buffer so the preview auto-dismisses on move.
+---@param path? string
+function M.show(path)
+    if not _preview_mgr then
+        return
+    end
+    _preview_mgr:show(path)
+    if path then
+        local buf = vim.api.nvim_get_current_buf()
+        vim.api.nvim_create_autocmd("CursorMoved", {
+            buffer = buf,
+            once = true,
+            callback = function()
+                M.hide()
+            end,
+        })
+    end
+end
+
+---Hide the active preview.
+function M.hide()
+    cancel_debounce()
+    if _preview_mgr then
+        _preview_mgr:hide()
+    end
+end
+
+---Return structured diagnostic data.
+---@return table|nil
+function M.status()
+    if not _preview_mgr then
+        return nil
+    end
+    local s = _preview_mgr:status()
+    local Terminal = require("focal.terminal")
+    s.terminal = Terminal.detect()
+    return s
+end
+
+-- ---------------------------------------------------------------------------
+-- Autocmd handlers
+-- ---------------------------------------------------------------------------
+
+---CursorHold handler — triggers preview after optional debounce.
+local function on_cursor_hold()
+    if not _cfg or not _cfg.enabled or not _preview_mgr then
+        return
+    end
+    if _cfg.debounce_ms > 0 then
+        cancel_debounce()
+        _debounce_timer = vim.uv.new_timer()
+        _debounce_timer:start(_cfg.debounce_ms, 0, vim.schedule_wrap(function()
+            cancel_debounce()
+            if not _cfg or not _cfg.enabled then
+                return
+            end
+            -- Re-read cursor position at fire time, not capture time.
+            _preview_mgr:show()
+        end))
+    else
+        _preview_mgr:show()
+    end
+end
+
+---CursorMoved handler — reposition, content-swap, or hide.
+local function on_cursor_moved()
+    if not _cfg or not _cfg.enabled or not _preview_mgr then
+        return
+    end
+    cancel_debounce()
+    local path, ext = resolve_cursor_path()
+    if path then
+        _preview_mgr:on_cursor_moved(path, ext)
+    else
+        _preview_mgr:hide()
+    end
+end
+
+---Hide handler — unconditional hide for WinLeave, BufLeave, etc.
+local function on_hide()
+    cancel_debounce()
+    if _preview_mgr then
+        _preview_mgr:hide()
+    end
+end
+
+---Resize handler.
+local function on_resize()
+    if _preview_mgr then
+        _preview_mgr:on_resize()
+    end
+end
+
+---Cleanup handler for VimLeavePre.
+local function on_vim_leave()
+    cancel_debounce()
+    if _preview_mgr then
+        _preview_mgr:hide()
+    end
+    -- Call cleanup() on all registered renderers to release resources.
+    if _renderer then
+        for _, r in ipairs(_renderer.get_all_renderers()) do
+            pcall(r.cleanup)
         end
     end
+end
 
-    -- 3. Load Adapters
-    Resolver._load_builtins()
-    Resolver._extensions_lookup = extensions_lookup
+-- ---------------------------------------------------------------------------
+-- User commands
+-- ---------------------------------------------------------------------------
 
-    -- 4. Ensure Dependencies (at least one backend must be available)
-    local Chafa = require("focal.chafa")
-    local has_image = false
-    local has_chafa = Chafa.is_available()
+local function register_commands()
+    vim.api.nvim_create_user_command("FocalToggle", function()
+        M.toggle()
+    end, { desc = "Toggle focal.nvim preview on/off" })
 
-    local ok, image_api = Utils.safe_require("image")
-    if ok then
-        -- Auto-init image.nvim if needed
-        local initialized = pcall(image_api.create_report)
-        if not initialized then
-            Utils.safe_call(image_api.setup, {})
+    vim.api.nvim_create_user_command("FocalEnable", function()
+        M.enable()
+    end, { desc = "Enable focal.nvim previews" })
+
+    vim.api.nvim_create_user_command("FocalDisable", function()
+        M.disable()
+    end, { desc = "Disable focal.nvim previews" })
+
+    vim.api.nvim_create_user_command("FocalShow", function(opts)
+        local path = opts.args ~= "" and opts.args or nil
+        M.show(path)
+    end, { nargs = "?", complete = "file", desc = "Show focal.nvim preview" })
+
+    vim.api.nvim_create_user_command("FocalHide", function()
+        M.hide()
+    end, { desc = "Hide focal.nvim preview" })
+
+    vim.api.nvim_create_user_command("FocalStatus", function()
+        local st = M.status()
+        if st then
+            vim.notify(vim.inspect(st), vim.log.levels.INFO)
+        else
+            vim.notify("[focal] Not initialized", vim.log.levels.WARN)
         end
-        has_image = true
-    end
+    end, { desc = "Show focal.nvim status" })
+end
 
-    if not has_image and not has_chafa then
-        Utils.notify(
-            "No rendering backend available. Install image.nvim (with a supported terminal) or chafa.",
-            vim.log.levels.ERROR
-        )
+-- ---------------------------------------------------------------------------
+-- Autocmd registration
+-- ---------------------------------------------------------------------------
+
+local function register_autocmds()
+    local group = vim.api.nvim_create_augroup("FocalAutoCmds", { clear = true })
+
+    local filetypes = _resolver.get_registered_filetypes()
+    if #filetypes == 0 then
         return
     end
 
-    -- 5. AutoCommands
-    local augroup = vim.api.nvim_create_augroup("FocalAutoCmds", { clear = true })
-    local supported_filetypes = Resolver.get_supported_filetypes()
-
+    -- FileType event creates buffer-local autocmds for each registered filetype.
     vim.api.nvim_create_autocmd("FileType", {
-        group = augroup,
-        pattern = supported_filetypes,
-        callback = function()
-            local b = vim.api.nvim_get_current_buf()
-            vim.api.nvim_clear_autocmds({ group = augroup, buffer = b })
+        group = group,
+        pattern = filetypes,
+        callback = function(ev)
+            local buf = ev.buf
 
-            -- Hover Trigger
             vim.api.nvim_create_autocmd("CursorHold", {
-                group = augroup,
-                buffer = b,
-                callback = function()
-                    local current_cursor = vim.api.nvim_win_get_cursor(0)
-                    vim.schedule(function()
-                        if vim.api.nvim_get_current_buf() ~= b then
-                            return
-                        end
-                        local new_cursor = vim.api.nvim_win_get_cursor(0)
-                        if new_cursor[1] ~= current_cursor[1] or new_cursor[2] ~= current_cursor[2] then
-                            return
-                        end
-
-                        local path = Resolver.resolve_image_path()
-                        if path then
-                            UI.show(path, M.opts)
-                            if M.opts.on_show then
-                                Utils.safe_call(M.opts.on_show, path)
-                            end
-                        end
-                    end)
-                end,
+                group = group,
+                buffer = buf,
+                callback = on_cursor_hold,
             })
 
-            -- Clear Trigger
-            vim.api.nvim_create_autocmd({ "CursorMoved", "WinLeave", "BufLeave", "BufHidden" }, {
-                group = augroup,
-                buffer = b,
-                callback = function()
-                    local had_preview = UI.state.win ~= nil
-                    UI.hide()
-                    if had_preview and M.opts.on_hide then
-                        Utils.safe_call(M.opts.on_hide)
-                    end
-                end,
+            vim.api.nvim_create_autocmd("CursorMoved", {
+                group = group,
+                buffer = buf,
+                callback = on_cursor_moved,
+            })
+
+            vim.api.nvim_create_autocmd({ "WinLeave", "BufLeave", "BufHidden", "TabLeave" }, {
+                group = group,
+                buffer = buf,
+                callback = on_hide,
+            })
+
+            vim.api.nvim_create_autocmd("WinClosed", {
+                group = group,
+                buffer = buf,
+                callback = on_hide,
+            })
+
+            vim.api.nvim_create_autocmd({ "VimResized", "WinScrolled" }, {
+                group = group,
+                buffer = buf,
+                callback = on_resize,
             })
         end,
     })
 
-    -- VimLeavePre cleanup
     vim.api.nvim_create_autocmd("VimLeavePre", {
-        group = augroup,
-        callback = UI.cleanup,
+        group = group,
+        callback = on_vim_leave,
+    })
+end
+
+-- ---------------------------------------------------------------------------
+-- setup()
+-- ---------------------------------------------------------------------------
+
+---Initialize focal.nvim. Idempotent — safe to call multiple times.
+---@param user_opts? table
+function M.setup(user_opts)
+    -- Deferred requires — only loaded on first setup().
+    _config = require("focal.config")
+    _resolver = require("focal.resolver")
+    _renderer = require("focal.renderer")
+    _window = require("focal.window")
+    _preview = require("focal.preview")
+    _cache_mod = require("focal.lib.cache")
+    _geometry = require("focal.lib.geometry")
+
+    -- If re-setup: hide active preview, snapshot current registries into pending.
+    if _setup_done and _preview_mgr then
+        _preview_mgr:hide()
+
+        -- Snapshot live registrations so they survive the reset.
+        for _, ft in ipairs(_resolver.get_registered_filetypes()) do
+            local source = _resolver.resolve(ft)
+            if source then
+                _pending_sources[#_pending_sources + 1] = source
+            end
+        end
+
+        -- Snapshot renderer registrations too
+        for _, r_ext in ipairs(_renderer.get_supported_extensions()) do
+            local r = _renderer.find_renderer(r_ext)
+            if r then
+                local exists = false
+                for _, pr in ipairs(_pending_renderers) do
+                    if pr.name == r.name then exists = true; break end
+                end
+                if not exists then
+                    table.insert(_pending_renderers, r)
+                end
+            end
+        end
+    end
+
+    -- Reset registries for a clean slate.
+    _resolver._reset()
+    _renderer._reset()
+
+    -- Merge config.
+    _cfg = _config.merge(user_opts)
+
+    -- Load built-in sources and renderers.
+    _resolver.load_builtins()
+    _renderer.load_builtins()
+
+    -- Drain pending source queue.
+    for _, source in ipairs(_pending_sources) do
+        _resolver.register_source(source)
+    end
+    _pending_sources = {}
+
+    -- Drain pending renderer queue.
+    for _, rend in ipairs(_pending_renderers) do
+        _renderer.register_renderer(rend)
+    end
+    _pending_renderers = {}
+
+    -- Set extension whitelist from config.
+    _renderer.set_whitelist(_cfg.extensions)
+
+    -- Warn if zero renderers available.
+    local supported = _renderer.get_supported_extensions()
+    if #supported == 0 then
+        vim.notify(
+            "[focal] No renderers available. Previews will not work.",
+            vim.log.levels.WARN
+        )
+    end
+
+    -- Create fresh WindowManager and PreviewManager.
+    local window_mgr = _window.new(_cfg)
+    local cache = _cache_mod.new()
+
+    _preview_mgr = _preview.new({
+        config = _cfg,
+        resolver = _resolver,
+        renderer_registry = _renderer,
+        window_mgr = window_mgr,
+        cache = cache,
     })
 
-    -- Debug Command
-    vim.api.nvim_create_user_command("FocalDebug", function()
-        print(vim.inspect({
-            plugin = "focal.nvim",
-            opts = M.opts,
-            state = UI.state,
-        }))
-    end, {})
+    -- Register autocmds (clears previous group on re-setup).
+    register_autocmds()
+
+    -- Register user commands (idempotent — nvim overwrites on name collision).
+    register_commands()
+
+    _setup_done = true
 end
 
 return M

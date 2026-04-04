@@ -1,229 +1,355 @@
-*focal.txt*	Image Previewer for Neovim
+*focal.txt*    Universal file preview for Neovim file explorers
 
-Author:  Firdaus
+Author:  hmdfrds
 License: MIT
 URL:     https://github.com/hmdfrds/focal.nvim
 
 ==============================================================================
-INTRODUCTION                                    *focal-introduction*
+CONTENTS                                                      *focal-contents*
 
-focal.nvim provides a seamless, high-performance image preview experience for
-Neovim file explorers. It focuses on "set and forget" reliability, ensuring
-that images are displayed instantly and accurately without slowing down your
-editor.
-
-Core Design Principles:
-1.  **Performance Check**: Automatically skips large files (>5MB) asynchronously
-    to prevent Editor freezes.
-2.  **Accuracy**: Calculates terminal cell geometry to render images that fill
-    the preview window 100% without distortion.
-3.  **Stability**: Uses window recycling to eliminate flicker during rapid
-    movement.
-
-Supported Explorers:
-  - neo-tree.nvim
-  - nvim-tree.lua
-  - oil.nvim
-  - snacks.nvim (picker)
+    1. Introduction ............................. |focal-introduction|
+    2. Requirements ............................. |focal-requirements|
+    3. Setup .................................... |focal-setup|
+    4. Configuration ............................ |focal-configuration|
+    5. Terminal Detection ....................... |focal-terminal-detection|
+    6. Custom Sources ........................... |focal-custom-sources|
+    7. Custom Renderers ......................... |focal-custom-renderers|
+    8. Commands ................................. |focal-commands|
+    9. API ...................................... |focal-api|
+   10. Highlight Groups ......................... |focal-highlights|
+   11. Troubleshooting .......................... |focal-troubleshooting|
 
 ==============================================================================
-REQUIREMENTS                                    *focal-requirements*
+1. INTRODUCTION                                           *focal-introduction*
 
-- Neovim >= 0.9.0
-- At least ONE rendering backend:
-  1. image.nvim (https://github.com/3rd/image.nvim) — pixel-perfect graphics
-  2. chafa (https://hpjansson.org/chafa/) — universal Unicode/ANSI fallback
-- One of the supported explorers (listed above).
+focal.nvim provides automatic image previews in Neovim file explorers.
+Hover over a file in neo-tree, nvim-tree, oil.nvim, or snacks.explorer
+and a floating preview window appears beside the cursor.
 
-Backend: image.nvim~
-  Provides pixel-perfect rendering via Kitty Graphics Protocol or Sixel.
-  - System Deps: ImageMagick (`magick`)
-    - MacOS: `brew install imagemagick`
-    - Linux: `sudo apt-get install imagemagick`
-  - Terminals: Kitty, WezTerm, Ghostty, Konsole, Foot, iTerm2
-    Any terminal supporting Kitty Graphics Protocol or Sixel.
+Key features:
 
-Backend: chafa~
-  Converts images to colored Unicode text. Works in ANY terminal with
-  256-color or truecolor support (including tmux, Alacritty, GNOME Terminal,
-  Windows Terminal, SSH sessions).
-  - MacOS: `brew install chafa`
-  - Linux: `sudo apt-get install chafa` / `sudo pacman -S chafa`
-
-When `backend = "auto"` (default), focal.nvim detects the terminal's graphics
-protocol support via environment variables. If a graphics-capable terminal is
-detected (Kitty, WezTerm, Ghostty, iTerm2, foot, Konsole), image.nvim is
-used. Otherwise, chafa is used as a universal fallback. This prevents empty
-preview windows when image.nvim is installed but the terminal lacks graphics
-support.
+- Dual registry architecture: sources detect cursor paths, renderers
+  display them. Both are pluggable.
+- State machine with generation counter prevents stale renders.
+- LRU render cache gives instant re-hover on previously viewed images.
+- Content swap replaces the preview buffer in-place for flicker-free
+  browsing between images.
+- Pixel-perfect rendering via image.nvim when the terminal supports
+  the kitty or sixel graphics protocol.
+- Universal fallback via chafa for terminals without graphics support.
 
 ==============================================================================
-SETUP                                           *focal-setup*
+2. REQUIREMENTS                                           *focal-requirements*
 
-This plugin requires the `setup()` function to be called to initialize
-listeners and adapters.
+- Neovim >= 0.10
 
-Standard Setup:
->lua
-    require("focal").setup({
-        -- options...
-    })
+At least one rendering backend:
+
+- image.nvim (https://github.com/3rd/image.nvim)
+  Provides pixel-perfect rendering. Requires a terminal with kitty or
+  sixel graphics protocol support.
+
+- chafa (https://hpjansson.org/chafa/)
+  Renders images as Unicode/ANSI art. Works in any terminal.
+  Install via your system package manager (e.g. `apt install chafa`,
+  `brew install chafa`).
+
+At least one supported file explorer:
+
+- neo-tree.nvim
+- nvim-tree.lua
+- oil.nvim
+- snacks.explorer
+
+==============================================================================
+3. SETUP                                                        *focal-setup*
+
+Minimal setup: >lua
+
+    require("focal").setup({})
 <
+lazy.nvim example: >lua
 
-Lazy.nvim Setup:
->lua
     {
         "hmdfrds/focal.nvim",
-        opts = {}, -- This calls setup() with defaults
+        event = "VeryLazy",
+        dependencies = {
+            -- Optional: pixel-perfect images
+            -- "3rd/image.nvim",
+        },
+        opts = {},
     }
 <
+focal.nvim will automatically detect installed file explorers and available
+rendering backends. No further configuration is required for most users.
 
 ==============================================================================
-CONFIGURATION                                   *focal-configuration*
+4. CONFIGURATION                                        *focal-configuration*
 
-You can configure focal by passing a table to `setup()`.
-Below are the default values with explanations:
+Pass a table to `require("focal").setup()`. All keys are optional.
+Below are the defaults: >lua
 
->lua
-    opts = {
-        -- Enable debug notifications (useful for troubleshooting path resolution)
+    require("focal").setup({
+        -- Master switch. Toggle at runtime with :FocalToggle.
+        enabled = true,
+
+        -- Print debug messages to :messages.
         debug = false,
 
-        -- Minimum dimensions for the preview window (in terminal cells).
-        -- Prevents the window from being too small for tiny images.
+        -- Float window border style (see :h nvim_open_win).
+        border = "rounded",
+
+        -- Float window transparency (0 = opaque, 100 = invisible).
+        winblend = 0,
+
+        -- Float window stacking order.
+        zindex = 100,
+
+        -- Show filename in the float title bar.
+        title = true,
+
+        -- Minimum float dimensions (columns x rows).
         min_width = 10,
         min_height = 5,
 
-        -- Maximum dimensions relative to the editor window (percentage).
-        -- 50 means the preview will take up at most half the screen.
-        max_width_pct = 50,
-        max_height_pct = 50,
+        -- Maximum float dimensions (columns x rows).
+        max_width = 80,
+        max_height = 40,
 
-        -- Absolute maximum height limit (in cells) to prevent vertical overflow
-        -- even on very tall screens.
-        max_cells = 60,
+        -- Maximum float size as percentage of editor dimensions.
+        max_width_percent = 50,
+        max_height_percent = 50,
 
-        -- Performance Guard: Skip images larger than this size (in MB).
-        -- Setting this too high (>50) MAY cause lags depending on CPU/Backend.
-        -- This check is performed asynchronously.
+        -- Skip files larger than this (megabytes).
         max_file_size_mb = 5,
 
-        -- Supported extensions. Files not matching these will be ignored.
-        extensions = {
-            "png", "jpg", "jpeg", "webp", "gif", "bmp"
-        },
+        -- Extra delay after CursorHold before rendering (ms).
+        -- Set to 0 for immediate preview.
+        debounce_ms = 0,
 
-        -- Rendering backend: "auto" | "image" | "chafa"
-        -- "auto" detects terminal graphics capability, uses image.nvim
-        -- if supported, otherwise falls back to chafa.
-        backend = "auto",
+        -- Horizontal and vertical offset from cursor to float.
+        col_offset = 4,
+        row_offset = 1,
 
-        -- Chafa-specific options (only used when backend is "chafa")
+        -- Force a specific renderer: "image.nvim", "chafa", or nil for auto.
+        backend = nil,
+
+        -- Chafa-specific settings.
         chafa = {
-            format = "symbols",    -- "symbols" (universal colored Unicode)
-            color_space = nil,     -- nil (auto) | "rgb" | "din99d"
+            format = "symbols",     -- "symbols", "sixels", or "kitty"
+            color_space = nil,      -- nil for auto, or "din99d", "rgb"
+            animate = false,        -- animate GIFs
+            max_output_bytes = 1048576,  -- 1 MB output cap
         },
 
-        -- Lifecycle hooks (optional)
-        on_show = nil,  -- fun(path: string) called after preview is shown
-        on_hide = nil,  -- fun() called after preview is hidden
-    }
+        -- Whitelist of extensions to preview. nil = all supported.
+        extensions = nil,
+
+        -- Render timeout (ms). Auto-hides if render takes too long.
+        render_timeout_ms = 10000,
+
+        -- Callbacks invoked when the preview opens/closes.
+        on_show = nil,   -- fun(path: string, renderer: string)
+        on_hide = nil,   -- fun()
+    })
 <
+==============================================================================
+5. TERMINAL DETECTION                              *focal-terminal-detection*
 
-All options are validated at startup. Invalid values trigger a `[focal]`
-warning and fall back to safe defaults automatically.
+focal.nvim auto-detects terminal capabilities via environment variables.
+The result is cached for the session lifetime.
+
+Terminals with graphics protocol support (image.nvim):
+
+    Terminal            Protocol        Detection
+    ---------           ----------      -----------------------
+    kitty               kitty           KITTY_PID / TERM
+    WezTerm             kitty           TERM_PROGRAM
+    ghostty             kitty           TERM_PROGRAM
+    Rio                 kitty           TERM_PROGRAM
+    iTerm2              sixel           TERM_PROGRAM
+    Konsole             sixel           KONSOLE_VERSION
+    foot                sixel           TERM (prefix match)
+    Windows Terminal    sixel           WT_SESSION
+    Contour             sixel           TERMINAL_EMULATOR
+
+Terminals without graphics support will use the chafa backend.
+
+Additional detection:
+
+- tmux: detected via $TMUX. Add `set -g allow-passthrough on` to your
+  tmux.conf for image.nvim to work through tmux.
+- SSH: detected via $SSH_CLIENT or $SSH_TTY.
+- mosh: detected via $MOSH_CONNECTION. Graphics protocols do not work
+  over mosh; chafa is used automatically.
 
 ==============================================================================
-TERMINAL DETECTION                              *focal-terminal-detection*
+6. CUSTOM SOURCES                                      *focal-custom-sources*
 
-When `backend = "auto"`, focal.nvim checks environment variables to determine
-whether your terminal supports a graphics protocol:
+A source adapter tells focal.nvim how to resolve the file path under the
+cursor for a given filetype. To register a custom source: >lua
 
-  Kitty protocol:  `$KITTY_PID` or `$TERM == "xterm-kitty"`
-  WezTerm:         `$TERM_PROGRAM == "WezTerm"`
-  Ghostty:         `$TERM_PROGRAM == "ghostty"`
-  iTerm2:          `$TERM_PROGRAM == "iTerm.app"`
-  foot:            `$TERM` starts with "foot"
-  Konsole:         `$KONSOLE_VERSION` is set
-
-If none of these are detected, focal.nvim uses chafa instead of image.nvim.
-This avoids the common issue where image.nvim is installed but the terminal
-cannot display graphics, resulting in an empty preview window.
-
-tmux~
-  Environment variables from the outer terminal are typically inherited.
-  If your outer terminal is Kitty/WezTerm/Ghostty, detection works. However,
-  you must enable `set -g allow-passthrough on` in tmux.conf for image.nvim
-  to render through tmux.
-
-SSH~
-  Graphics protocols generally do not work over SSH. Exception: Kitty's
-  SSH kitten (`kitten ssh`) preserves `$TERM=xterm-kitty`.
-
-To override auto-detection, set `backend = "image"` or `backend = "chafa"`
-explicitly in your configuration.
-
-Run `:checkhealth focal` to see what terminal protocol was detected.
-
-==============================================================================
-CUSTOM ADAPTERS                                 *focal-custom-adapters*
-
-You can register adapters for unsupported file explorers using the
-`register_adapter()` function. This can be called before or after `setup()`.
-
->lua
-    require("focal").register_adapter({
-        filetype = "my_explorer",
+    require("focal").register_source({
+        filetype = "my-explorer",
         get_path = function()
-            -- Return the absolute path of the file under cursor, or nil.
-            return "/path/to/image.png"
+            -- Return the absolute path of the file under the cursor,
+            -- or nil if no previewable file is selected.
+            local node = require("my-explorer").get_current_node()
+            if node and node.type == "file" then
+                return node.path
+            end
+            return nil
         end,
     })
 <
+Sources can be registered before or after `setup()`. Those registered
+before are queued and drained during `setup()`.
 
-Adapter interface:
-- `filetype` (string)   The buffer filetype to match.
-- `get_path` (function) Returns the absolute file path under cursor, or nil.
-
-Invalid adapters are rejected with a warning. The function returns `true` on
-success and `false` on failure.
+Built-in sources: neo-tree, nvim-tree, oil, snacks.
 
 ==============================================================================
-COMMANDS                                        *focal-commands*
+7. CUSTOM RENDERERS                                  *focal-custom-renderers*
 
-:FocalDebug                                     *FocalDebug*
-    Prints internal state to `:messages`. Useful for reporting bugs.
-    Output includes:
-    - Active adapter (e.g., "neo-tree")
-    - Resolved cursor path
-    - Terminal geometry (cell size calculations)
-    - Current configuration options
+A renderer tells focal.nvim how to display a file in the preview window.
+To register a custom renderer: >lua
 
-:checkhealth focal                              *checkhealth-focal*
-    Runs standard Neovim health checks.
-    - Verifies rendering backends (image.nvim and/or chafa).
-    - Detects terminal graphics protocol (Kitty, Sixel, etc.).
-    - Reports tmux and SSH session status.
-    - Reports registered adapters (built-in and custom).
-    - Detects installed file explorer plugins.
-    - Reports configured backend and chafa version (if installed).
-    - Verifies configuration is loaded.
-
-==============================================================================
-TROUBLESHOOTING                                 *focal-troubleshooting*
-
-1.  **Images are not showing up?**
-    - Run `:checkhealth focal` to ensure dependencies are met.
-    - Run `:FocalDebug` while hovering a node to see if the path is resolved.
-
-2.  **Images look distorted?**
-    - Ensure your terminal (Kitty, WezTerm, Ghostty, iTerm2) supports the
-      graphics protocol configured in `image.nvim`.
-    - Check if `termguicolors` is enabled.
-
-3.  **Editor freezes when hovering large files?**
-    - `focal.nvim` has an async size check. If it still lags, try reducing
-      `max_file_size_mb` in config.
+    require("focal").register_renderer({
+        name = "my-renderer",
+        extensions = { "png", "jpg" },
+        priority = 75,           -- higher wins (image=100, chafa=50)
+        needs_terminal = false,
+        is_available = function()
+            return true
+        end,
+        get_geometry = function(path, stat, env)
+            return { width = env.max_width, height = env.max_height }
+        end,
+        render = function(ctx, done)
+            -- ctx.path, ctx.buf, ctx.win, ctx.geometry, ctx.config
+            -- Call done(true) on success, done(false) on failure.
+            done(true)
+        end,
+        clear = function()
+            -- Called when the preview is dismissed.
+        end,
+        cleanup = function()
+            -- Called on full teardown.
+        end,
+    })
+<
+Renderers can be registered before or after `setup()`.
 
 ==============================================================================
-vim:tw=78:ts=8:ft=help:norl:
+8. COMMANDS                                                  *focal-commands*
+
+                                                              *:FocalEnable*
+:FocalEnable             Enable focal.nvim previews.
+
+                                                             *:FocalDisable*
+:FocalDisable            Disable focal.nvim previews and hide any active
+                        preview.
+
+                                                              *:FocalToggle*
+:FocalToggle             Toggle focal.nvim previews on or off.
+
+                                                                *:FocalShow*
+:FocalShow [path]        Show a preview. If {path} is given, display that
+                        file and auto-dismiss on cursor move. If omitted,
+                        preview the file under the cursor.
+
+                                                                *:FocalHide*
+:FocalHide               Hide the active preview window.
+
+                                                              *:FocalStatus*
+:FocalStatus             Print diagnostic information: current state,
+                        generation counter, cache stats, terminal info.
+
+==============================================================================
+9. API                                                          *focal-api*
+
+All functions are available on the module returned by
+`require("focal")`.
+
+focal.setup({opts})                                          *focal.setup()*
+    Initialize focal.nvim. Idempotent -- safe to call multiple times.
+    Merges {opts} with defaults, loads built-in sources and renderers,
+    registers autocmds and user commands.
+
+focal.enable()                                              *focal.enable()*
+    Enable previews at runtime.
+
+focal.disable()                                            *focal.disable()*
+    Disable previews at runtime and hide any active preview.
+
+focal.toggle()                                              *focal.toggle()*
+    Toggle the enabled state.
+
+focal.is_enabled()                                      *focal.is_enabled()*
+    Return `true` if previews are currently enabled.
+
+focal.show([path])                                            *focal.show()*
+    Show a preview. If {path} is provided, display that file and
+    auto-dismiss on cursor move. If omitted, preview the file under
+    the cursor in the current explorer.
+
+focal.hide()                                                  *focal.hide()*
+    Hide the active preview window.
+
+focal.status()                                              *focal.status()*
+    Return a table of diagnostic information: state, generation,
+    cache stats, and terminal detection results.
+
+focal.register_source({source})                    *focal.register_source()*
+    Register a source adapter. See |focal-custom-sources|.
+    Returns `true` on success, `false` on validation failure.
+
+focal.register_renderer({renderer})              *focal.register_renderer()*
+    Register a renderer. See |focal-custom-renderers|.
+    Returns `true` on success, `false` on validation failure.
+
+==============================================================================
+10. HIGHLIGHT GROUPS                                      *focal-highlights*
+
+FocalFloat                                                      *FocalFloat*
+    Background of the preview float. Default: links to |hl-NormalFloat|.
+
+FocalBorder                                                    *FocalBorder*
+    Border of the preview float. Default: links to |hl-FloatBorder|.
+
+Override example: >lua
+
+    vim.api.nvim_set_hl(0, "FocalFloat", { bg = "#1e1e2e" })
+    vim.api.nvim_set_hl(0, "FocalBorder", { fg = "#89b4fa" })
+<
+==============================================================================
+11. TROUBLESHOOTING                                  *focal-troubleshooting*
+
+Run `:checkhealth focal` to diagnose common problems.
+
+No preview appears~
+- Verify a backend is available: `:checkhealth focal`
+- Check that the file extension is supported (png, jpg, jpeg, webp,
+  gif, bmp, tiff, avif, svg for chafa).
+- Ensure `enabled = true` or run `:FocalEnable`.
+- Lower `updatetime` to 300-500ms for responsive CursorHold events.
+
+image.nvim not working~
+- Run `:checkhealth focal` and verify your terminal is detected.
+- If inside tmux, add `set -g allow-passthrough on` to tmux.conf.
+- Ensure image.nvim's own `setup()` has been called before focal.
+
+Flickering or stale images~
+- This may occur when switching images rapidly. The generation counter
+  and content-swap logic should handle this. File an issue if it
+  persists.
+
+Preview appears in wrong position~
+- Adjust `col_offset` and `row_offset` in your config.
+
+File explorer not detected~
+- Ensure the explorer plugin is loaded before focal.nvim runs `setup()`.
+  With lazy.nvim, list the explorer in `dependencies`.
+- Run `:FocalStatus` to see which sources are registered.
+
+==============================================================================
+ vim:tw=78:ts=8:ft=help:norl:

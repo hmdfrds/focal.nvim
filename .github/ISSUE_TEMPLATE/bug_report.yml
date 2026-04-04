@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in iris.nvim
+description: Report a bug in focal.nvim
 labels: [bug]
 body:
   - type: input
@@ -21,10 +21,10 @@ body:
       required: true
 
   - type: textarea
-    id: iris-status
+    id: focal-status
     attributes:
-      label: ":IrisStatus output"
-      description: "Run `:IrisStatus` and paste the output here"
+      label: ":FocalStatus output"
+      description: "Run `:FocalStatus` and paste the output here"
       render: lua
     validations:
       required: false
@@ -32,8 +32,8 @@ body:
   - type: textarea
     id: checkhealth
     attributes:
-      label: ":checkhealth iris output"
-      description: "Run `:checkhealth iris` and paste the output here"
+      label: ":checkhealth focal output"
+      description: "Run `:checkhealth focal` and paste the output here"
       render: text
     validations:
       required: false
@@ -44,7 +44,7 @@ body:
       label: Steps to reproduce
       description: "Minimal steps to trigger the bug"
       placeholder: |
-        1. Open nvim with iris.nvim configured
+        1. Open nvim with focal.nvim configured
         2. Open neo-tree
         3. Hover over an image file
         4. ...

@@ -14,7 +14,7 @@ body:
     id: proposed-solution
     attributes:
       label: Proposed solution
-      description: "How you would like iris.nvim to handle this"
+      description: "How you would like focal.nvim to handle this"
     validations:
       required: true
 

@@ -1,8 +1,8 @@
-# iris.nvim
+# focal.nvim
 
 > Universal file preview for Neovim. Hover over a file in any explorer, see a preview.
 
-iris.nvim is an extensible preview framework with dual backends (pixel-perfect via image.nvim, Unicode fallback via chafa) and a plugin adapter system that works with any file explorer.
+focal.nvim is an extensible preview framework with dual backends (pixel-perfect via image.nvim, Unicode fallback via chafa) and a plugin adapter system that works with any file explorer.
 
 ---
 
@@ -16,10 +16,10 @@ iris.nvim is an extensible preview framework with dual backends (pixel-perfect v
 - **Content Swap** — moving between images keeps the window open and swaps content in-place (no flicker)
 - **Render Cache** — LRU cache makes re-hovering the same image instant
 - **Runtime Control** — enable, disable, toggle previews without restarting
-- **Manual Trigger** — `:IrisShow [path]` previews any file on demand
+- **Manual Trigger** — `:FocalShow [path]` previews any file on demand
 - **Configurable** — border, transparency, position, size constraints, file size limits
 - **Performance Guard** — automatically skips large files to prevent editor freezes
-- **Diagnostics** — `:checkhealth iris` and `:IrisStatus` for troubleshooting
+- **Diagnostics** — `:checkhealth focal` and `:FocalStatus` for troubleshooting
 
 ## Requirements
 
@@ -48,7 +48,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 Generic:
 
 ```lua
-require("iris").setup({})
+require("focal").setup({})
 ```
 
 ## Configuration
@@ -56,7 +56,7 @@ require("iris").setup({})
 All options with their defaults:
 
 ```lua
-require("iris").setup({
+require("focal").setup({
   -- Runtime toggle
   enabled = true,
 
@@ -99,20 +99,23 @@ require("iris").setup({
     max_output_bytes = 1048576, -- stdout cap (1MB)
   },
 
+  -- Render timeout (ms). Auto-hides if render takes too long.
+  render_timeout_ms = 10000,
+
   -- Lifecycle hooks
   on_show = nil,  -- fun(path: string, renderer: string)
   on_hide = nil,  -- fun()
 })
 ```
 
-> **Note:** `updatetime` controls how quickly previews appear (it's Neovim's CursorHold delay). Many users set it to 300-500ms for responsive LSP diagnostics, which also makes iris more responsive. The default (4000ms) will feel slow.
+> **Note:** `updatetime` controls how quickly previews appear (it's Neovim's CursorHold delay). Many users set it to 300-500ms for responsive LSP diagnostics, which also makes focal more responsive. The default (4000ms) will feel slow.
 
 ## Custom Sources
 
 Register adapters for unsupported file explorers:
 
 ```lua
-require("iris").register_source({
+require("focal").register_source({
   filetype = "my_explorer",
   get_path = function()
     -- return the absolute path of the file under cursor, or nil
@@ -126,7 +129,7 @@ require("iris").register_source({
 Register renderers for new file types:
 
 ```lua
-require("iris").register_renderer({
+require("focal").register_renderer({
   name = "my-pdf-renderer",
   extensions = { "pdf" },
   priority = 80,
@@ -150,17 +153,17 @@ require("iris").register_renderer({
 
 | Command | Description |
 |---------|-------------|
-| `:IrisToggle` | Toggle previews on/off |
-| `:IrisEnable` | Enable previews |
-| `:IrisDisable` | Disable previews |
-| `:IrisShow [path]` | Preview file under cursor, or a specific file |
-| `:IrisHide` | Dismiss current preview |
-| `:IrisStatus` | Print diagnostic info |
-| `:checkhealth iris` | Full health check |
+| `:FocalToggle` | Toggle previews on/off |
+| `:FocalEnable` | Enable previews |
+| `:FocalDisable` | Disable previews |
+| `:FocalShow [path]` | Preview file under cursor, or a specific file |
+| `:FocalHide` | Dismiss current preview |
+| `:FocalStatus` | Print diagnostic info |
+| `:checkhealth focal` | Full health check |
 
 ## Troubleshooting
 
-1. **Previews not showing?** Run `:checkhealth iris` to verify backends and terminal support.
+1. **Previews not showing?** Run `:checkhealth focal` to verify backends and terminal support.
 2. **Previews feel slow?** Lower your `updatetime` (e.g., `vim.o.updatetime = 300`).
 3. **Wrong backend?** Set `backend = "chafa"` or `backend = "image.nvim"` explicitly.
 4. **Inside tmux?** Add `set -g allow-passthrough on` to your `tmux.conf`.

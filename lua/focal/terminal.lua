@@ -1,80 +1,69 @@
 ---@mod focal.terminal "Terminal Capability Detection"
 ---@brief [[
---- Detects the terminal's graphics protocol support via environment variables.
---- Used by auto-detection to decide whether image.nvim can actually render.
+--- Detects terminal graphics protocol support via environment variables.
+--- Table-driven: adding a terminal = adding one table entry.
 ---@brief ]]
 
 local M = {}
 
----@class FocalTerminalInfo
----@field has_graphics boolean Whether the terminal supports a graphics protocol
----@field protocol string|nil "kitty"|"sixel"|nil
----@field terminal string|nil Detected terminal name (for diagnostics)
----@field in_tmux boolean Whether running inside tmux
----@field in_ssh boolean Whether running inside an SSH session
-
 ---@type FocalTerminalInfo|nil
 local _cached = nil
 
----Detect terminal graphics capability from environment variables.
----Result is cached for the lifetime of the Neovim session.
+local terminals = {
+    { env_key = "KITTY_PID", terminal = "kitty", protocol = "kitty" },
+    { env_key = "TERM", value = "xterm-kitty", terminal = "kitty", protocol = "kitty" },
+    { env_key = "TERM_PROGRAM", value = "WezTerm", terminal = "WezTerm", protocol = "kitty" },
+    { env_key = "TERM_PROGRAM", value = "ghostty", terminal = "ghostty", protocol = "kitty" },
+    { env_key = "TERM_PROGRAM", value = "iTerm.app", terminal = "iTerm2", protocol = "sixel" },
+    { env_key = "KONSOLE_VERSION", terminal = "Konsole", protocol = "sixel" },
+    { env_key = "TERM", prefix = "foot", terminal = "foot", protocol = "sixel" },
+    { env_key = "WT_SESSION", terminal = "Windows Terminal", protocol = "sixel" },
+    { env_key = "TERM_PROGRAM", value = "rio", terminal = "Rio", protocol = "kitty" },
+    { env_key = "TERMINAL_EMULATOR", value = "contour", terminal = "Contour", protocol = "sixel" },
+    { env_key = "MOSH_CONNECTION", terminal = "mosh", protocol = nil },
+}
+
+---Detect terminal graphics capability. Cached for session lifetime.
 ---@return FocalTerminalInfo
 function M.detect()
     if _cached then
         return _cached
     end
 
-    local env = vim.fn.environ()
-
     local info = {
         has_graphics = false,
         protocol = nil,
         terminal = nil,
-        in_tmux = env.TMUX ~= nil,
-        in_ssh = env.SSH_CLIENT ~= nil or env.SSH_TTY ~= nil,
+        in_tmux = vim.env.TMUX ~= nil,
+        in_ssh = vim.env.SSH_CLIENT ~= nil or vim.env.SSH_TTY ~= nil,
+        in_mosh = vim.env.MOSH_CONNECTION ~= nil,
     }
 
-    -- Kitty Graphics Protocol
-    local is_kitty = env.KITTY_PID ~= nil or env.TERM == "xterm-kitty"
-    local is_wezterm = env.TERM_PROGRAM == "WezTerm"
-    local is_ghostty = env.TERM_PROGRAM == "ghostty"
-
-    -- Sixel-capable terminals
-    local is_iterm = env.TERM_PROGRAM == "iTerm.app"
-    local is_foot = env.TERM ~= nil and env.TERM:find("^foot") ~= nil
-    local is_konsole = env.KONSOLE_VERSION ~= nil
-
-    if is_kitty then
-        info.terminal = "kitty"
-        info.protocol = "kitty"
-        info.has_graphics = true
-    elseif is_wezterm then
-        info.terminal = "WezTerm"
-        info.protocol = "kitty"
-        info.has_graphics = true
-    elseif is_ghostty then
-        info.terminal = "ghostty"
-        info.protocol = "kitty"
-        info.has_graphics = true
-    elseif is_iterm then
-        info.terminal = "iTerm2"
-        info.protocol = "sixel"
-        info.has_graphics = true
-    elseif is_foot then
-        info.terminal = "foot"
-        info.protocol = "sixel"
-        info.has_graphics = true
-    elseif is_konsole then
-        info.terminal = "Konsole"
-        info.protocol = "sixel"
-        info.has_graphics = true
+    for _, entry in ipairs(terminals) do
+        local env_val = vim.env[entry.env_key]
+        if env_val then
+            local match = false
+            if entry.value then
+                match = (env_val == entry.value)
+            elseif entry.prefix then
+                match = (env_val:find("^" .. entry.prefix) ~= nil)
+            else
+                match = true
+            end
+            if match then
+                info.terminal = entry.terminal
+                info.protocol = entry.protocol
+                info.has_graphics = entry.protocol ~= nil
+                break
+            end
+        end
     end
 
     _cached = info
     return _cached
 end
 
----Clear the cached detection result.
+---Clear cached detection result.
 function M.reset_cache()
     _cached = nil
 end

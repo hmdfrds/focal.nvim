@@ -1,77 +1,45 @@
----@mod focal.resolver "Path Resolver"
----@brief [[
---- Adapter manager. Dispatches path resolution to the correct
---- adapter based on the current buffer's filetype.
---- Supports lazy-loading, O(1) filetype lookup, and custom adapter registration.
----@brief ]]
-
-local Utils = require("focal.utils")
-
 local M = {}
 
----@class FocalAdapter
----@field filetype string The filetype this adapter handles
----@field get_path fun(): string|nil Resolve absolute path under cursor
-
---- Hashmap: filetype -> adapter (O(1) lookup)
----@type table<string, FocalAdapter>
+--- @type table<string, table>
 local ft_map = {}
 
---- Built-in adapter module paths (lazy-loaded on setup)
 local builtin_modules = {
-    "focal.adapters.neo-tree",
-    "focal.adapters.nvim-tree",
-    "focal.adapters.oil",
-    "focal.adapters.snacks",
+    "focal.sources.neo-tree",
+    "focal.sources.nvim-tree",
+    "focal.sources.oil",
+    "focal.sources.snacks",
 }
 
----Validate that an adapter conforms to the FocalAdapter interface.
----@param adapter table
----@param source string Description of where this adapter came from (for error messages)
----@return boolean
-local function validate_adapter(adapter, source)
-    if type(adapter.filetype) ~= "string" or adapter.filetype == "" then
-        Utils.notify(
-            string.format("Invalid adapter from '%s': 'filetype' must be a non-empty string", source),
-            vim.log.levels.WARN
-        )
+--- Validate and register a source adapter.
+--- @param source table must have `filetype` (non-empty string) and `get_path` (function)
+--- @return boolean
+function M.register_source(source)
+    if type(source) ~= "table" then
         return false
     end
-    if type(adapter.get_path) ~= "function" then
-        Utils.notify(
-            string.format("Invalid adapter from '%s': 'get_path' must be a function", source),
-            vim.log.levels.WARN
-        )
+    if type(source.filetype) ~= "string" or source.filetype == "" then
         return false
     end
+    if type(source.get_path) ~= "function" then
+        return false
+    end
+    if ft_map[source.filetype] then
+        vim.notify(string.format("[focal] Source '%s' overwritten by new registration", source.filetype), vim.log.levels.WARN)
+    end
+    ft_map[source.filetype] = source
     return true
 end
 
----Load all built-in adapters. Called once from setup().
-function M._load_builtins()
-    ft_map = {}
-    for _, mod_path in ipairs(builtin_modules) do
-        local ok, adapter = pcall(require, mod_path)
-        if ok and validate_adapter(adapter, mod_path) then
-            ft_map[adapter.filetype] = adapter
-        end
-    end
+--- O(1) lookup of a registered source by filetype.
+--- @param filetype string
+--- @return table|nil
+function M.resolve(filetype)
+    return ft_map[filetype]
 end
 
----Register a custom adapter. Validates the interface before adding.
----@param adapter FocalAdapter
----@return boolean success
-function M.register_adapter(adapter)
-    if not validate_adapter(adapter, "custom") then
-        return false
-    end
-    ft_map[adapter.filetype] = adapter
-    return true
-end
-
----Get list of supported filetypes from all registered adapters.
----@return string[]
-function M.get_supported_filetypes()
+--- Return an array of all registered filetype strings.
+--- @return string[]
+function M.get_registered_filetypes()
     local fts = {}
     for ft, _ in pairs(ft_map) do
         fts[#fts + 1] = ft
@@ -79,39 +47,22 @@ function M.get_supported_filetypes()
     return fts
 end
 
----Resolve the absolute path of the node under cursor (O(1) filetype lookup).
----@return string|nil path
-function M.get_cursor_path()
-    local ft = vim.bo.filetype
-    local adapter = ft_map[ft]
-    if not adapter then
-        return nil
+--- Load built-in source modules. Missing modules are silently skipped.
+--- Only adds a source if its filetype is not already registered.
+function M.load_builtins()
+    for _, mod_name in ipairs(builtin_modules) do
+        local ok, source = pcall(require, mod_name)
+        if ok and type(source) == "table" and source.filetype then
+            if not ft_map[source.filetype] then
+                M.register_source(source)
+            end
+        end
     end
-
-    local ok, path = Utils.safe_call(adapter.get_path)
-    if ok and path and type(path) == "string" then
-        return path
-    end
-    return nil
 end
 
---- Extensions lookup table, set by init.lua during setup.
----@type table<string, boolean>
-M._extensions_lookup = {}
-
----Resolve image path: adapter dispatch + extension filtering combined.
----@return string|nil path
-function M.resolve_image_path()
-    local path = M.get_cursor_path()
-    if not path then
-        return nil
-    end
-
-    local ext = path:match("^.+%.(.+)$")
-    if ext and M._extensions_lookup[ext:lower()] then
-        return path
-    end
-    return nil
+--- Clear the registry (for testing only).
+function M._reset()
+    ft_map = {}
 end
 
 return M
