@@ -20,12 +20,6 @@ function M.get_path()
     local path = item.file or item._path
     if not path then return nil end
 
-    -- Filter out directories.
-    local stat = vim.uv.fs_stat(path)
-    if stat and stat.type == "directory" then
-        return nil
-    end
-
     return path
 end
 
