@@ -65,7 +65,7 @@ local function resolve_cursor_path()
         return nil, nil
     end
     local ok, path = pcall(source.get_path)
-    if not ok or not path then
+    if not ok or type(path) ~= "string" then
         return nil, nil
     end
     local ext = _geometry.extract_extension(path)

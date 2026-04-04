@@ -50,7 +50,10 @@ function WM:open(geometry, anchor, title)
         Geo.adaptive_position(width, height, anchor, self._config.col_offset, self._config.row_offset, vim.o.columns)
 
     -- Create scratch buffer.
-    local buf = vim.api.nvim_create_buf(false, true)
+    local buf_ok, buf = pcall(vim.api.nvim_create_buf, false, true)
+    if not buf_ok or not buf then
+        return nil, nil
+    end
 
     -- Build window config.
     local win_config = {
@@ -136,6 +139,9 @@ function WM:reposition(anchor)
     local raw_h = current.height
     local width = type(raw_w) == "table" and raw_w[2] or raw_w
     local height = type(raw_h) == "table" and raw_h[2] or raw_h
+    if type(width) ~= "number" or type(height) ~= "number" then
+        return
+    end
     local pos =
         Geo.adaptive_position(width, height, anchor, self._config.col_offset, self._config.row_offset, vim.o.columns)
     pcall(vim.api.nvim_win_set_config, self._win, {
@@ -164,7 +170,10 @@ function WM:replace_buffer()
     end
 
     -- Create new scratch buffer.
-    local new_buf = vim.api.nvim_create_buf(false, true)
+    local buf_ok, new_buf = pcall(vim.api.nvim_create_buf, false, true)
+    if not buf_ok or not new_buf then
+        return self._buf
+    end
 
     -- Swap buffer in the window (pcall guards TOCTOU with is_open check).
     local swap_ok = pcall(vim.api.nvim_win_set_buf, self._win, new_buf)

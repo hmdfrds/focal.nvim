@@ -111,7 +111,7 @@ function M.render(ctx, done)
         })
     end)
 
-    if ok then
+    if ok and _img.is_rendered then
         -- Read back the actual rendered size so the window can shrink to fit.
         local fit = nil
         if _img.rendered_geometry then
@@ -122,6 +122,10 @@ function M.render(ctx, done)
             end
         end
         done(true, { fit = fit })
+    elseif ok then
+        -- Render returned without error but image.nvim silently rejected it
+        -- (window not visible, out of bounds, etc.)
+        done(false)
     else
         vim.notify("[focal] image.nvim render failed: " .. tostring(err), vim.log.levels.DEBUG)
         done(false)
