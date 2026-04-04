@@ -11,7 +11,7 @@ function M.get_path()
     local node_ok, node = pcall(api.tree.get_node_under_cursor)
     if not node_ok or not node then return nil end
 
-    if node.absolute_path and node.type ~= "directory" then
+    if node.absolute_path and node.type == "file" then
         return node.absolute_path
     end
 
