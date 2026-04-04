@@ -160,7 +160,10 @@ function M.status()
     if not _preview_mgr then
         return nil
     end
-    return _preview_mgr:status()
+    local s = _preview_mgr:status()
+    local Terminal = require("iris.terminal")
+    s.terminal = Terminal.detect()
+    return s
 end
 
 -- ---------------------------------------------------------------------------
