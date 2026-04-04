@@ -103,7 +103,7 @@ function M.spawn(cmd, args, opts)
                 end
                 stdout_done = true
                 -- Kill the process since we're discarding its output
-                if not exited and handle and not handle:is_closing() then
+                if exit_code == nil and handle and not handle:is_closing() then
                     pcall(function() handle:kill("sigterm") end)
                 end
                 maybe_finish()
