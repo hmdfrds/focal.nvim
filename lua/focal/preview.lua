@@ -30,6 +30,7 @@ function M.new(deps)
         _notified = {}, ---@type table<string, boolean>
         _max_file_bytes = deps.config.max_file_size_mb * 1024 * 1024,
         _render_timer = nil, ---@type uv_timer_t|nil
+        _pending_path = nil, ---@type string|nil  path being rendered (set before _current_path)
     }, PM)
 end
 
@@ -214,6 +215,7 @@ function PM:hide()
     self._current_path = nil
     self._current_stat = nil
     self._current_renderer = nil
+    self._pending_path = nil
 
     -- Fire user callback.
     if self._config.on_hide then
@@ -269,6 +271,7 @@ function PM:show(path)
 
     -- Begin async resolve: bump generation, set state, create guard.
     self._generation = self._generation + 1
+    self._pending_path = path
     self:_transition("resolving")
 
     local guard = Guard.new(self._generation, vim.api.nvim_get_current_buf())
@@ -320,6 +323,7 @@ end
 ---@param guard FocalGuard
 ---@param is_swap boolean Whether this is a content swap (window already open)
 function PM:_do_render(path, stat, renderer, guard, is_swap)
+    self._pending_path = path
     self:_transition("rendering")
 
     local env = self:_build_env()
@@ -510,6 +514,9 @@ function PM:_content_swap(path, ext, renderer)
     -- (4b) Nil _current_path immediately to prevent A->B->A race.
     self._current_path = nil
 
+    -- Store pending path so on_resize can recover during async gap.
+    self._pending_path = path
+
     -- (4c) Signal async work in flight.
     self:_transition("resolving")
 
@@ -592,8 +599,12 @@ end
 
 ---Handle terminal resize. Always hide+show for both renderer types.
 function PM:on_resize()
-    if (self._state == "visible" and self._window_mgr:is_open()) or self._state == "rendering" then
-        local path = self._current_path
+    if
+        (self._state == "visible" and self._window_mgr:is_open())
+        or self._state == "rendering"
+        or self._state == "resolving"
+    then
+        local path = self._current_path or self._pending_path
         self:hide()
         if path then
             self:show(path)
