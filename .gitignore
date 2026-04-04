@@ -4,3 +4,4 @@
 session.vim
 .nvim.lua
 .nvimlog
+tests/deps/

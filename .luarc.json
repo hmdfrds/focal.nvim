@@ -5,12 +5,11 @@
   "diagnostics": {
     "globals": [
       "vim",
+      "MiniTest",
       "describe",
       "it",
       "before_each",
-      "after_each",
-      "teardown",
-      "pending"
+      "after_each"
     ]
   },
   "workspace": {
