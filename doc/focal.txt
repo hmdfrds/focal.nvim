@@ -128,7 +128,7 @@ Below are the defaults: >lua
         col_offset = 4,
         row_offset = 1,
 
-        -- Force a specific renderer: "auto", "image.nvim", "chafa", or nil for auto.
+        -- Force a renderer: nil/"auto", "image.nvim", "chafa".
         backend = nil,
 
         -- Chafa-specific settings.
@@ -173,6 +173,7 @@ Terminals with graphics protocol support (image.nvim):
     xterm               (none)          XTERM_VERSION
     tmux                (none)          TERM (prefix match)
     screen              (none)          TERM (prefix match)
+    mosh                (none)          MOSH_SERVER_PID
 
 Terminals marked (none) have no graphics protocol support and will
 use the chafa backend.
@@ -331,7 +332,7 @@ Run `:checkhealth focal` to diagnose common problems.
 No preview appears~
 - Verify a backend is available: `:checkhealth focal`
 - Check that the file extension is supported (png, jpg, jpeg, webp,
-  gif, bmp, tiff, avif, svg (chafa only)).
+  gif, bmp, tiff, tif, avif, svg (chafa only)).
 - Ensure `enabled = true` or run `:FocalEnable`.
 - Lower `updatetime` to 300-500ms for responsive CursorHold events.
 
