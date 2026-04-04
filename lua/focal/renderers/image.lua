@@ -4,8 +4,6 @@
 --- Requires a terminal with graphics protocol support (kitty/sixel).
 ---@brief ]]
 
-local Geo = require("focal.lib.geometry")
-
 local M = {}
 
 ---@type table|nil  image.nvim API handle

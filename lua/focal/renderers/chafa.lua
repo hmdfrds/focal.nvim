@@ -152,7 +152,7 @@ end
 function M.register(registry)
     registry.register_renderer({
         name = "chafa",
-        extensions = { "png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "avif", "svg" },
+        extensions = { "png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "tif", "avif", "svg" },
         priority = 50,
         needs_terminal = true,
         is_available = M.is_available,

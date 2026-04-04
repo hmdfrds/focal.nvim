@@ -461,9 +461,9 @@ function M.setup(user_opts)
     _resolver.load_builtins()
     _renderer.load_builtins()
 
-    -- Drain pending source queue.
+    -- Drain pending source queue (silent to suppress re-setup overwrite warnings).
     for _, source in ipairs(_pending_sources) do
-        _resolver.register_source(source)
+        _resolver.register_source(source, true)
     end
     _pending_sources = {}
 

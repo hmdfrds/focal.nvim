@@ -14,8 +14,9 @@ local builtin_modules = {
 
 --- Validate and register a source adapter.
 --- @param source FocalSource must have `filetype` (non-empty string) and `get_path` (function)
+--- @param silent? boolean Suppress overwrite warning (used internally during re-setup)
 --- @return boolean
-function M.register_source(source)
+function M.register_source(source, silent)
     if type(source) ~= "table" then
         return false
     end
@@ -25,7 +26,7 @@ function M.register_source(source)
     if type(source.get_path) ~= "function" then
         return false
     end
-    if ft_map[source.filetype] then
+    if ft_map[source.filetype] and not silent then
         vim.notify(
             string.format("[focal] Source '%s' overwritten by new registration", source.filetype),
             vim.log.levels.WARN
