@@ -176,7 +176,7 @@ Additional detection:
 
 - tmux: detected via $TMUX. Add `set -g allow-passthrough on` to your
   tmux.conf for image.nvim to work through tmux.
-- SSH: detected via $SSH_CLIENT or $SSH_TTY.
+- SSH: detected via $SSH_CLIENT, $SSH_TTY, or $SSH_CONNECTION.
 - mosh: detected via $MOSH_SERVER_PID. Graphics protocols do not work
   over mosh; chafa is used automatically.
 
