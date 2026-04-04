@@ -1,117 +1,119 @@
-# focal.nvim 👁️
+# iris.nvim
 
-> **Fo**cused **Ca**lm **L**ook for Neovim images.
+> Universal file preview for Neovim. Hover over a file in any explorer, see a preview.
 
-`focal.nvim` provides an image preview experience for your file explorer. It is designed to be a "set and forget" plugin that just works.
-
-![Demo](./assets/bruh.gif)
+iris.nvim is an extensible preview framework with dual backends (pixel-perfect via image.nvim, Unicode fallback via chafa) and a plugin adapter system that works with any file explorer.
 
 ---
 
-## ✨ Features
+## Features
 
--   **Zero-Friction Hover**: Automatically previews images when your cursor hovers over them.
--   **Multi-Explorer Support**: Works out of the box with:
-    -   `nvim-neo-tree/neo-tree.nvim`
-    -   `nvim-tree/nvim-tree.lua`
-    -   `stevearc/oil.nvim`
-    -   `folke/snacks.nvim` (explorer)
--   **Custom Adapter API**: Register your own adapters for unsupported file explorers.
--   **Dual Backend**: Pixel-perfect rendering via `image.nvim` on supported terminals, with automatic `chafa` fallback for universal Unicode/ANSI preview on any terminal.
--   **Pixel-Perfect Scaling**: Calculates terminal cell geometry to ensure images fill the preview window 100% without distortion or wasted space.
--   **Performance Guard**: Automatically skips huge files (`>5MB` by default) to prevent your editor from freezing.
--   **Window Pooling**: Reuses preview windows and buffers to eliminate flicker and reduce overhead.
--   **Lifecycle Hooks**: Optional `on_show` / `on_hide` callbacks for integration with other plugins.
--   **Config Validation**: Invalid options are caught at startup with warnings, falling back to safe defaults.
+- **Zero-Friction Hover** — automatically previews images when your cursor rests on them
+- **Multi-Explorer Support** — works out of the box with neo-tree, nvim-tree, oil.nvim, snacks.nvim
+- **Dual Backend** — pixel-perfect rendering via image.nvim on supported terminals, with automatic chafa fallback for universal Unicode/ANSI preview on any terminal
+- **Extensible Sources** — register your own adapters for unsupported file explorers
+- **Extensible Renderers** — register custom renderers for new file types (PDF, video thumbnails, etc.)
+- **Content Swap** — moving between images keeps the window open and swaps content in-place (no flicker)
+- **Render Cache** — LRU cache makes re-hovering the same image instant
+- **Runtime Control** — enable, disable, toggle previews without restarting
+- **Manual Trigger** — `:IrisShow [path]` previews any file on demand
+- **Configurable** — border, transparency, position, size constraints, file size limits
+- **Performance Guard** — automatically skips large files to prevent editor freezes
+- **Diagnostics** — `:checkhealth iris` and `:IrisStatus` for troubleshooting
 
-## 📦 Requirements
+## Requirements
 
--   **Neovim** >= 0.9.0
--   **At least one rendering backend** (or both):
-    -   [3rd/image.nvim](https://github.com/3rd/image.nvim) — pixel-perfect graphics
-        -   **System Deps**: `magick` (ImageMagick) is required by `image.nvim`.
-            -   MacOS: `brew install imagemagick`
-            -   Linux: `sudo apt-get install imagemagick` / `sudo pacman -S imagemagick`
-        -   **Terminals**: Kitty, WezTerm, Ghostty, Konsole, Foot, iTerm2 (any terminal supporting **Kitty Graphics Protocol** or **Sixel**).
-    -   [chafa](https://hpjansson.org/chafa/) — universal Unicode/ANSI fallback
-        -   Works in **any** terminal with 256-color or truecolor (Alacritty, GNOME Terminal, Windows Terminal, tmux, SSH, etc.)
-        -   MacOS: `brew install chafa`
-        -   Linux: `sudo apt-get install chafa` / `sudo pacman -S chafa`
--   **File Explorer**:
-    -   Any supported explorer (Neo-tree, Nvim-tree, Oil, Snacks).
+- **Neovim** >= 0.10.0
+- **At least one rendering backend:**
+  - [image.nvim](https://github.com/3rd/image.nvim) — pixel-perfect graphics (Kitty, WezTerm, Ghostty, iTerm2, foot, Konsole)
+  - [chafa](https://hpjansson.org/chafa/) — universal Unicode/ANSI fallback (any terminal with 256-color or truecolor)
+- **A file explorer:** neo-tree, nvim-tree, oil.nvim, or snacks.nvim
 
-## 🚀 Installation
+## Installation
 
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
-  "hmdfrds/focal.nvim",
+  "hmdfrds/iris.nvim",
   dependencies = {
     "3rd/image.nvim", -- optional if using chafa backend
   },
-  -- ⚠️ IMPORTANT: You MUST set 'opts = {}' or 'config = true'
-  -- because this plugin requires setup() to be called.
   opts = {
-    -- See "Configuration" below for full list of options
+    -- See Configuration below
   },
 }
 ```
 
-## ⚙️ Configuration
-
-You can customize `focal.nvim` by passing a table to `setup()` or `opts`.
-Here are the default values:
+Generic:
 
 ```lua
-opts = {
-  -- Enable debug notifications (useful for troubleshooting)
+require("iris").setup({})
+```
+
+## Configuration
+
+All options with their defaults:
+
+```lua
+require("iris").setup({
+  -- Runtime toggle
+  enabled = true,
+
+  -- Debug logging (verbose output to :messages)
   debug = false,
 
-  -- Minimum dimensions for the preview window (in terminal cells)
+  -- Window appearance
+  border = "rounded",       -- border style (any valid nvim_open_win border)
+  winblend = 0,             -- transparency (0-100)
+  zindex = 100,             -- float stacking order
+  title = true,             -- show filename in border
+
+  -- Size constraints (in terminal cells)
   min_width = 10,
   min_height = 5,
+  max_width = 80,
+  max_height = 40,
+  max_width_percent = 50,   -- max width as % of editor
+  max_height_percent = 50,  -- max height as % of editor
 
-  -- Maximum dimensions relative to the editor window (percentage)
-  max_width_pct = 50,
-  max_height_pct = 50,
+  -- Performance
+  max_file_size_mb = 5,     -- skip files larger than this
+  debounce_ms = 0,          -- additional delay after CursorHold (0 = use updatetime)
 
-  -- Absolute maximum height limit (in cells) to prevent vertical overflow
-  max_cells = 60,
+  -- Position
+  col_offset = 4,           -- horizontal gap from cursor
+  row_offset = 1,           -- vertical gap from cursor
 
-  -- 🛡️ Performance Guard: Skip images larger than this size (in MB)
-  -- Setting this too high (>20) WILL freeze Neovim during loading.
-  max_file_size_mb = 5,
+  -- Renderer override
+  backend = nil,            -- nil = auto, "image.nvim", or "chafa"
 
-  -- Supported extensions. Files not matching these will be ignored.
-  extensions = { "png", "jpg", "jpeg", "webp", "gif", "bmp" },
+  -- Extension whitelist (nil = all renderer-declared extensions)
+  extensions = nil,         -- e.g., { "png", "jpg" } to restrict
 
-  -- Rendering backend: "auto" | "image" | "chafa"
-  -- "auto" detects terminal graphics capability, uses image.nvim
-  -- if supported, otherwise falls back to chafa.
-  backend = "auto",
-
-  -- Chafa-specific options (only used when backend is "chafa")
+  -- Chafa-specific options
   chafa = {
-    format = "symbols",   -- "symbols" (universal colored Unicode)
-    color_space = nil,    -- nil (auto) | "rgb" | "din99d"
+    format = "symbols",     -- chafa --format flag
+    color_space = nil,      -- nil = auto, "rgb", "din99d"
+    animate = false,        -- allow GIF animation
+    max_output_bytes = 1048576, -- stdout cap (1MB)
   },
 
-  -- Lifecycle hooks (optional)
-  on_show = nil, -- fun(path: string) called after preview is shown
-  on_hide = nil, -- fun() called after preview is hidden
-}
+  -- Lifecycle hooks
+  on_show = nil,  -- fun(path: string, renderer: string)
+  on_hide = nil,  -- fun()
+})
 ```
 
-> **Note:** All options are validated at startup. Invalid values trigger a warning and fall back to the default.
+> **Note:** `updatetime` controls how quickly previews appear (it's Neovim's CursorHold delay). Many users set it to 300-500ms for responsive LSP diagnostics, which also makes iris more responsive. The default (4000ms) will feel slow.
 
-## 🔌 Custom Adapters
+## Custom Sources
 
-You can register adapters for unsupported file explorers:
+Register adapters for unsupported file explorers:
 
 ```lua
-require("focal").register_adapter({
-  filetype = "my_explorer",  -- the filetype of the explorer buffer
+require("iris").register_source({
+  filetype = "my_explorer",
   get_path = function()
     -- return the absolute path of the file under cursor, or nil
     return "/path/to/image.png"
@@ -119,50 +121,54 @@ require("focal").register_adapter({
 })
 ```
 
-The adapter must have:
--   `filetype` (string): The buffer filetype to match.
--   `get_path` (function): Returns the absolute file path under cursor, or `nil`.
+## Custom Renderers
 
-## 🩺 Diagnostics & Troubleshooting
+Register renderers for new file types:
 
-`focal.nvim` comes with built-in diagnostic tools compliant with Neovim standards.
-
-### 1. Health Check
-
-Run the standard health check to verify your installation, dependencies, and adapter status:
-
-```vim
-:checkhealth focal
+```lua
+require("iris").register_renderer({
+  name = "my-pdf-renderer",
+  extensions = { "pdf" },
+  priority = 80,
+  needs_terminal = true,
+  is_available = function()
+    return vim.fn.executable("pdftoppm") == 1
+  end,
+  get_geometry = function(path, stat, env)
+    return { width = env.max_width, height = env.max_height }
+  end,
+  render = function(ctx, done)
+    -- render PDF page 1 as image, display in ctx.buf
+    done(true, { output = "...", fit = { width = 40, height = 30 } })
+  end,
+  clear = function() end,
+  cleanup = function() end,
+})
 ```
 
-**Common issues checked:**
+## Commands
 
--   Is `image.nvim` installed and its backend initialized?
--   Is `chafa` installed (and its version)?
--   Does your terminal support a graphics protocol (Kitty, Sixel)?
--   Which rendering backend is configured?
--   Are any supported file explorer plugins active?
+| Command | Description |
+|---------|-------------|
+| `:IrisToggle` | Toggle previews on/off |
+| `:IrisEnable` | Enable previews |
+| `:IrisDisable` | Disable previews |
+| `:IrisShow [path]` | Preview file under cursor, or a specific file |
+| `:IrisHide` | Dismiss current preview |
+| `:IrisStatus` | Print diagnostic info |
+| `:checkhealth iris` | Full health check |
 
-### 2. Debug Command
+## Troubleshooting
 
-If you are hovering an image but nothing shows up, move your cursor over the node and run:
+1. **Previews not showing?** Run `:checkhealth iris` to verify backends and terminal support.
+2. **Previews feel slow?** Lower your `updatetime` (e.g., `vim.o.updatetime = 300`).
+3. **Wrong backend?** Set `backend = "chafa"` or `backend = "image.nvim"` explicitly.
+4. **Inside tmux?** Add `set -g allow-passthrough on` to your `tmux.conf`.
 
-```vim
-:FocalDebug
-```
+## Contributing
 
-This will print the internal state, active adapter, and terminal geometry to `:messages`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and how to add sources/renderers.
 
-## ❓ FAQ
+## License
 
-**Q: Why doesn't it work if I remove `opts = {}`?**  
-A: `lazy.nvim` only calls `require("focal").setup()` if you provide `opts` or set `config = true`. Without it, the plugin is installed but never started.
-
-**Q: Why do huge images freeze my editor?**  
-A: Image processing (resizing/converting) is CPU/IO intensive. `image.nvim` waits for this process to finish to ensure the image is ready, which pauses the main thread. Use `max_file_size_mb` to protect yourself.
-
-**Q: My images are small/distorted?**
-A: Ensure your terminal supports the graphics protocol you are using (Kitty/Sixel). `focal.nvim` does the math correctly, but the terminal must support the render output.
-
-**Q: Can I use focal.nvim in a terminal without graphics protocol support?**
-A: Yes! Install `chafa` and focal.nvim will automatically use it as a fallback. Chafa converts images to colored Unicode text that works in any terminal with 256-color or truecolor support. Set `backend = "chafa"` to force it, or leave `backend = "auto"` (default) for automatic detection.
+MIT

@@ -295,4 +295,102 @@ T["cache hit avoids re-render"] = function()
     os.remove(tmpfile)
 end
 
+T["content swap keeps window, changes content"] = function()
+    local render_calls = {}
+
+    local env = make_test_env({
+        renderer = H.mock_renderer({
+            name = "swap-renderer",
+            render = function(ctx, done)
+                table.insert(render_calls, ctx.path)
+                done(true)
+            end,
+        }),
+    })
+
+    local tmpA = vim.fn.tempname() .. ".png"
+    local tmpB = vim.fn.tempname() .. ".png"
+    vim.fn.writefile({ "imageA" }, tmpA)
+    vim.fn.writefile({ "imageB" }, tmpB)
+
+    -- Show image A
+    env.pm:show(tmpA)
+    vim.wait(2000, function()
+        return env.pm:get_state() == "visible"
+    end)
+    MiniTest.expect.equality(env.pm:get_current_path(), tmpA)
+    local win_before = env.wm:get_win()
+
+    -- Content swap to image B via on_cursor_moved
+    env.pm:on_cursor_moved(tmpB, "png")
+    vim.wait(2000, function()
+        return env.pm:get_current_path() == tmpB
+    end)
+
+    -- Window should still be open (same window, swapped content)
+    MiniTest.expect.equality(env.wm:is_open(), true)
+    MiniTest.expect.equality(env.pm:get_current_path(), tmpB)
+
+    -- Both files should have been rendered
+    MiniTest.expect.equality(#render_calls, 2)
+    MiniTest.expect.equality(render_calls[1], tmpA)
+    MiniTest.expect.equality(render_calls[2], tmpB)
+
+    env.pm:hide()
+    os.remove(tmpA)
+    os.remove(tmpB)
+end
+
+T["on_resize repositions visible preview"] = function()
+    local env = make_test_env({
+        renderer = H.mock_renderer(),
+    })
+
+    local tmpfile = vim.fn.tempname() .. ".png"
+    vim.fn.writefile({ "fake" }, tmpfile)
+
+    env.pm:show(tmpfile)
+    vim.wait(2000, function()
+        return env.pm:get_state() == "visible"
+    end)
+    MiniTest.expect.equality(env.pm:get_state(), "visible")
+
+    -- Simulate VimResized — should reposition, not crash, stay visible
+    env.pm:on_resize()
+    MiniTest.expect.equality(env.pm:get_state(), "visible")
+    MiniTest.expect.equality(env.wm:is_open(), true)
+
+    env.pm:hide()
+    os.remove(tmpfile)
+end
+
+T["iris.show(path) works from public API"] = function()
+    reset_iris()
+    local iris = require("iris")
+    iris.setup({})
+
+    -- Register a mock renderer that handles png
+    local Renderer = require("iris.renderer")
+    local rendered = false
+    Renderer.register_renderer(H.mock_renderer({
+        name = "show-test",
+        render = function(ctx, done)
+            rendered = true
+            done(true)
+        end,
+    }))
+
+    local tmpfile = vim.fn.tempname() .. ".png"
+    vim.fn.writefile({ "fake" }, tmpfile)
+
+    iris.show(tmpfile)
+    vim.wait(2000, function()
+        return rendered
+    end)
+    MiniTest.expect.equality(rendered, true)
+
+    iris.hide()
+    os.remove(tmpfile)
+end
+
 return T
