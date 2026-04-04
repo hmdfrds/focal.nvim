@@ -459,10 +459,10 @@ function PM:_do_render(path, stat, renderer, guard, is_swap)
     end)
 
     -- (3e) pcall-wrap renderer.render() — on sync throw, cancel timer and hide.
-    local render_ok, render_err = pcall(renderer.render, ctx, function(ok, result)
+    local render_ok, _ = pcall(renderer.render, ctx, function(ok, result)
         vim.schedule(function()
             -- (3f) Wrap entire done-callback body in pcall with fallback to hide().
-            local cb_ok, cb_err = pcall(function()
+            local cb_ok, _ = pcall(function()
                 -- Stale callback: do nothing. A newer operation owns the state.
                 if not Guard.is_valid(guard, self._generation) then
                     return
@@ -524,7 +524,7 @@ end
 ---@param path string
 ---@param ext string
 ---@param renderer FocalRenderer
-function PM:_content_swap(path, ext, renderer)
+function PM:_content_swap(path, _ext, renderer)
     -- (4a) Bump generation FIRST, before any clear, to cancel in-flight work.
     self._generation = self._generation + 1
 
