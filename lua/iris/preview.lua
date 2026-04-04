@@ -109,14 +109,15 @@ end
 
 ---Emit a notification only once per key per session.
 ---@param key string Unique key for the notification
+---@param level integer vim.log.levels.*
 ---@param msg string Message format
 ---@param ... any Format arguments
-function PM:_notify_once(key, msg, ...)
+function PM:_notify_once(key, level, msg, ...)
     if self._notified[key] then
         return
     end
     self._notified[key] = true
-    vim.notify(string.format(msg, ...), vim.log.levels.WARN)
+    vim.notify(string.format(msg, ...), level)
 end
 
 -- ---------------------------------------------------------------------------
@@ -191,22 +192,21 @@ function PM:show(path)
     local renderer
     if self._config.backend and self._config.backend ~= "auto" then
         renderer = self._renderer_registry.find_by_name(self._config.backend)
-        if renderer and not renderer.is_available() then
+        if not renderer or not renderer.is_available() then
             self:_notify_once(
                 "backend_unavail_" .. self._config.backend,
-                "[iris] Backend '%s' is not available, falling back to auto",
+                vim.log.levels.ERROR,
+                "[iris] Backend '%s' is not available. Run :checkhealth iris for details.",
                 self._config.backend
             )
-            renderer = nil
+            return
         end
         -- Verify the forced backend supports this extension.
-        if renderer then
-            local ext_found = false
-            for _, e in ipairs(renderer.extensions) do
-                if e:lower() == ext then ext_found = true; break end
-            end
-            if not ext_found then renderer = nil end
+        local ext_found = false
+        for _, e in ipairs(renderer.extensions) do
+            if e:lower() == ext then ext_found = true; break end
         end
+        if not ext_found then renderer = nil end
     end
     if not renderer then
         renderer = self._renderer_registry.find_renderer(ext)
@@ -248,6 +248,7 @@ function PM:show(path)
             if stat.size and stat.size > max_bytes then
                 self:_notify_once(
                     "filesize_" .. path,
+                    vim.log.levels.WARN,
                     "[iris] File too large: %s (%.1f MB > %d MB limit)",
                     path,
                     stat.size / 1024 / 1024,
