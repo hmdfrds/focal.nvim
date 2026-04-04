@@ -42,8 +42,11 @@ end
 function M.get_geometry(path, stat, env)
     if not _image_api then return { width = env.max_width, height = env.max_height } end
 
+    -- Clear any previous image to avoid leaks (e.g. when cache hit skips render()).
+    M.clear()
+
     local img_ok, img = pcall(_image_api.from_file, path, {
-        id = path .. "-iris-" .. (stat.mtime or 0),
+        id = path .. "-iris-" .. (stat.mtime and stat.mtime.sec or 0),
     })
     if not img_ok or not img then
         return { width = env.max_width, height = env.max_height }
@@ -119,7 +122,7 @@ end
 ---@param registry table
 function M.register(registry)
     registry.register_renderer({
-        name = "image",
+        name = "image.nvim",
         extensions = { "png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "avif" },
         priority = 100,
         needs_terminal = false,
