@@ -497,6 +497,22 @@ function M.setup(user_opts)
     -- Register autocmds (clears previous group on re-setup).
     register_autocmds()
 
+    -- Re-trigger FileType for already-open explorer buffers so they get
+    -- buffer-local autocmds (the augroup clear removed them).
+    local filetypes = _resolver.get_registered_filetypes()
+    local ft_set = {}
+    for _, ft in ipairs(filetypes) do
+        ft_set[ft] = true
+    end
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_valid(buf) and ft_set[vim.bo[buf].filetype] then
+            vim.api.nvim_exec_autocmds("FileType", {
+                group = "FocalAutoCmds",
+                buffer = buf,
+            })
+        end
+    end
+
     -- Register user commands (idempotent — nvim overwrites on name collision).
     register_commands()
 
