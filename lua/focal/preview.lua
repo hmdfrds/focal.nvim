@@ -335,6 +335,10 @@ function PM:_do_render(path, stat, renderer, guard, is_swap)
         return
     end
 
+    -- Track the active renderer so hide() can clean up the correct one
+    -- during cross-renderer swaps (e.g., image.nvim → chafa).
+    self._current_renderer = renderer
+
     local mtime = stat.mtime and stat.mtime.sec or 0
     local max_geo = { width = env.max_width, height = env.max_height }
 
