@@ -29,6 +29,7 @@
 ---@field backend FocalBackend?
 ---@field chafa FocalChafaConfig
 ---@field extensions string[]?
+---@field render_timeout_ms integer
 ---@field on_show function?
 ---@field on_hide function?
 
@@ -60,6 +61,7 @@ M.defaults = {
         max_output_bytes = 1048576,
     },
     extensions = nil,
+    render_timeout_ms = 10000,
     on_show = nil,
     on_hide = nil,
 }
@@ -86,6 +88,7 @@ local expected_types = {
     backend = "string",
     chafa = "table",
     extensions = "table",
+    render_timeout_ms = "number",
     on_show = "function",
     on_hide = "function",
 }

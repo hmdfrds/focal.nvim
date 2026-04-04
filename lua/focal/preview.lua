@@ -28,6 +28,8 @@ function M.new(deps)
         _config = deps.config,
         _cache = deps.cache,
         _notified = {}, ---@type table<string, boolean>
+        _max_file_bytes = deps.config.max_file_size_mb * 1024 * 1024,
+        _render_timer = nil, ---@type uv_timer_t|nil
     }, PM)
 end
 
@@ -93,10 +95,10 @@ function PM:_build_env()
     local cell_w = 8
     local cell_h = 16
     if vim.o.columns > 0 and vim.o.lines > 0 then
-        local tw = vim.env.COLUMNS_PIXELS or (vim.o.columns * 8)
-        local th = vim.env.LINES_PIXELS or (vim.o.lines * 16)
-        cell_w = math.max(1, math.floor(tonumber(tw) / vim.o.columns))
-        cell_h = math.max(1, math.floor(tonumber(th) / vim.o.lines))
+        local tw = tonumber(vim.env.COLUMNS_PIXELS) or (vim.o.columns * 8)
+        local th = tonumber(vim.env.LINES_PIXELS) or (vim.o.lines * 16)
+        cell_w = math.max(1, math.floor(tw / vim.o.columns))
+        cell_h = math.max(1, math.floor(th / vim.o.lines))
     end
     return {
         max_width = avail.width,
@@ -120,6 +122,49 @@ function PM:_notify_once(key, level, msg, ...)
     vim.notify(string.format(msg, ...), level)
 end
 
+---Resolve the renderer for a given extension, respecting backend override.
+---@param ext string Lowercase file extension
+---@return FocalRenderer|nil
+function PM:_resolve_renderer(ext)
+    local renderer
+    if self._config.backend and self._config.backend ~= "auto" then
+        renderer = self._renderer_registry.find_by_name(self._config.backend)
+        if not renderer or not renderer.is_available() then
+            self:_notify_once(
+                "backend_unavail_" .. self._config.backend,
+                vim.log.levels.ERROR,
+                "[focal] Backend '%s' is not available. Run :checkhealth focal for details.",
+                self._config.backend
+            )
+            return nil
+        end
+        local ext_found = false
+        for _, e in ipairs(renderer.extensions) do
+            if e:lower() == ext then
+                ext_found = true
+                break
+            end
+        end
+        if not ext_found then
+            return nil
+        end
+    end
+    if not renderer then
+        renderer = self._renderer_registry.find_renderer(ext)
+    end
+    return renderer
+end
+
+---Cancel any active render timeout timer.
+function PM:_cancel_render_timer()
+    if self._render_timer then
+        if not self._render_timer:is_closing() then
+            self._render_timer:close()
+        end
+        self._render_timer = nil
+    end
+end
+
 -- ---------------------------------------------------------------------------
 -- State transitions
 -- ---------------------------------------------------------------------------
@@ -140,6 +185,9 @@ end
 ---Idempotent and safe from any state.
 function PM:hide()
     self._generation = self._generation + 1
+
+    -- Cancel render timeout timer.
+    self:_cancel_render_timer()
 
     -- Clear current renderer output.
     if self._current_renderer then
@@ -189,28 +237,7 @@ function PM:show(path)
     end
     ext = ext:lower()
 
-    local renderer
-    if self._config.backend and self._config.backend ~= "auto" then
-        renderer = self._renderer_registry.find_by_name(self._config.backend)
-        if not renderer or not renderer.is_available() then
-            self:_notify_once(
-                "backend_unavail_" .. self._config.backend,
-                vim.log.levels.ERROR,
-                "[focal] Backend '%s' is not available. Run :checkhealth focal for details.",
-                self._config.backend
-            )
-            return
-        end
-        -- Verify the forced backend supports this extension.
-        local ext_found = false
-        for _, e in ipairs(renderer.extensions) do
-            if e:lower() == ext then ext_found = true; break end
-        end
-        if not ext_found then renderer = nil end
-    end
-    if not renderer then
-        renderer = self._renderer_registry.find_renderer(ext)
-    end
+    local renderer = self:_resolve_renderer(ext)
     if not renderer then
         return
     end
@@ -227,8 +254,7 @@ function PM:show(path)
 
     local guard = Guard.new(
         self._generation,
-        vim.api.nvim_get_current_buf(),
-        vim.api.nvim_win_get_cursor(0)
+        vim.api.nvim_get_current_buf()
     )
 
     -- Async stat the file.
@@ -244,8 +270,7 @@ function PM:show(path)
             end
 
             -- Check file size limit.
-            local max_bytes = self._config.max_file_size_mb * 1024 * 1024
-            if stat.size and stat.size > max_bytes then
+            if stat.size and stat.size > self._max_file_bytes then
                 self:_notify_once(
                     "filesize_" .. path,
                     vim.log.levels.WARN,
@@ -350,9 +375,28 @@ function PM:_do_render(path, stat, renderer, guard, is_swap)
         ctx.chan = self._window_mgr:open_terminal()
     end
 
+    -- Start render timeout watchdog.
+    local gen = self._generation
+    self:_cancel_render_timer()
+    local render_timer = vim.uv.new_timer()
+    self._render_timer = render_timer
+    render_timer:start(self._config.render_timeout_ms or 10000, 0, function()
+        if not render_timer:is_closing() then
+            render_timer:close()
+        end
+        vim.schedule(function()
+            if self._generation == gen then
+                self:hide()
+            end
+        end)
+    end)
+
     -- Invoke the renderer.
     renderer.render(ctx, function(ok, result)
         vim.schedule(function()
+            -- Cancel the render timeout timer.
+            self:_cancel_render_timer()
+
             if not Guard.is_valid(guard, self._generation) then
                 self:hide()
                 return
@@ -411,8 +455,7 @@ function PM:_content_swap(path, ext, renderer)
 
     local guard = Guard.new(
         self._generation,
-        vim.api.nvim_get_current_buf(),
-        vim.api.nvim_win_get_cursor(0)
+        vim.api.nvim_get_current_buf()
     )
 
     -- Async stat for the new path.
@@ -428,8 +471,7 @@ function PM:_content_swap(path, ext, renderer)
             end
 
             -- Check file size limit.
-            local max_bytes = self._config.max_file_size_mb * 1024 * 1024
-            if stat.size and stat.size > max_bytes then
+            if stat.size and stat.size > self._max_file_bytes then
                 self:hide()
                 return
             end
@@ -468,24 +510,7 @@ function PM:on_cursor_moved(new_path, new_extension)
     end
     ext = ext:lower()
 
-    local renderer
-    if self._config.backend and self._config.backend ~= "auto" then
-        renderer = self._renderer_registry.find_by_name(self._config.backend)
-        if renderer and not renderer.is_available() then
-            renderer = nil
-        end
-        -- Verify the forced backend supports this extension.
-        if renderer then
-            local ext_found = false
-            for _, e in ipairs(renderer.extensions) do
-                if e:lower() == ext then ext_found = true; break end
-            end
-            if not ext_found then renderer = nil end
-        end
-    end
-    if not renderer then
-        renderer = self._renderer_registry.find_renderer(ext)
-    end
+    local renderer = self:_resolve_renderer(ext)
 
     if not renderer then
         self:hide()
