@@ -15,6 +15,7 @@ local _pending_renderers = {}
 local _preview_mgr = nil ---@type table|nil
 local _setup_done = false
 local _debounce_timer = nil ---@type uv_timer_t|nil
+local _resize_timer = nil ---@type uv_timer_t|nil
 
 -- Deferred-require holders — populated lazily in setup().
 local _config = nil
@@ -36,7 +37,9 @@ local _cfg = nil
 local function cancel_debounce()
     if _debounce_timer then
         _debounce_timer:stop()
-        _debounce_timer:close()
+        if not _debounce_timer:is_closing() then
+            _debounce_timer:close()
+        end
         _debounce_timer = nil
     end
 end
@@ -49,8 +52,8 @@ local function resolve_cursor_path()
     if not source then
         return nil, nil
     end
-    local path = source.get_path()
-    if not path then
+    local ok, path = pcall(source.get_path)
+    if not ok or not path then
         return nil, nil
     end
     local ext = _geometry.extract_extension(path)
@@ -68,6 +71,10 @@ end
 ---@param source FocalSource
 ---@return boolean
 function M.register_source(source)
+    if type(source) ~= "table" then
+        vim.notify("[focal] register_source: expected table, got " .. type(source), vim.log.levels.WARN)
+        return false
+    end
     if not _setup_done then
         _pending_sources[#_pending_sources + 1] = source
         return true
@@ -79,6 +86,10 @@ end
 ---@param renderer FocalRenderer
 ---@return boolean
 function M.register_renderer(renderer)
+    if type(renderer) ~= "table" then
+        vim.notify("[focal] register_renderer: expected table, got " .. type(renderer), vim.log.levels.WARN)
+        return false
+    end
     if not _setup_done then
         _pending_renderers[#_pending_renderers + 1] = renderer
         return true
@@ -92,13 +103,16 @@ end
 
 ---Enable previews at runtime.
 function M.enable()
-    if _cfg then
-        _cfg.enabled = true
+    if not _cfg or not _preview_mgr then
+        vim.notify("[focal] setup() has not been called", vim.log.levels.WARN)
+        return
     end
+    _cfg.enabled = true
 end
 
 ---Disable previews at runtime and hide any active preview.
 function M.disable()
+    cancel_debounce()
     if _cfg then
         _cfg.enabled = false
     end
@@ -109,7 +123,11 @@ end
 
 ---Toggle enabled state.
 function M.toggle()
-    if _cfg and _cfg.enabled then
+    if not _cfg or not _preview_mgr then
+        vim.notify("[focal] setup() has not been called", vim.log.levels.WARN)
+        return
+    end
+    if _cfg.enabled then
         M.disable()
     else
         M.enable()
@@ -130,7 +148,8 @@ end
 ---autocmd on the current buffer so the preview auto-dismisses on move.
 ---@param path? string
 function M.show(path)
-    if not _preview_mgr then
+    if not _cfg or not _preview_mgr then
+        vim.notify("[focal] setup() has not been called", vim.log.levels.WARN)
         return
     end
     _preview_mgr:show(path)
@@ -178,6 +197,7 @@ local function on_cursor_hold()
     if _cfg.debounce_ms > 0 then
         cancel_debounce()
         _debounce_timer = vim.uv.new_timer()
+        if not _debounce_timer then return end
         _debounce_timer:start(_cfg.debounce_ms, 0, vim.schedule_wrap(function()
             cancel_debounce()
             if not _cfg or not _cfg.enabled then
@@ -220,9 +240,32 @@ local function on_resize()
     end
 end
 
+---Cancel the resize debounce timer if running.
+local function cancel_resize_debounce()
+    if _resize_timer then
+        _resize_timer:stop()
+        if not _resize_timer:is_closing() then
+            _resize_timer:close()
+        end
+        _resize_timer = nil
+    end
+end
+
+---Debounced resize/scroll handler (50ms).
+local function on_resize_debounced()
+    cancel_resize_debounce()
+    _resize_timer = vim.uv.new_timer()
+    if not _resize_timer then return end
+    _resize_timer:start(50, 0, vim.schedule_wrap(function()
+        cancel_resize_debounce()
+        on_resize()
+    end))
+end
+
 ---Cleanup handler for VimLeavePre.
 local function on_vim_leave()
     cancel_debounce()
+    cancel_resize_debounce()
     if _preview_mgr then
         _preview_mgr:hide()
     end
@@ -289,6 +332,10 @@ local function register_autocmds()
         callback = function(ev)
             local buf = ev.buf
 
+            -- Clear any existing buffer-local autocmds in this group to prevent
+            -- accumulation on repeated FileType events for the same buffer.
+            vim.api.nvim_clear_autocmds({ group = group, buffer = buf })
+
             vim.api.nvim_create_autocmd("CursorHold", {
                 group = group,
                 buffer = buf,
@@ -313,12 +360,18 @@ local function register_autocmds()
                 callback = on_hide,
             })
 
-            vim.api.nvim_create_autocmd({ "VimResized", "WinScrolled" }, {
+            vim.api.nvim_create_autocmd("WinScrolled", {
                 group = group,
                 buffer = buf,
-                callback = on_resize,
+                callback = on_resize_debounced,
             })
         end,
+    })
+
+    -- VimResized is a global event (not buffer-local).
+    vim.api.nvim_create_autocmd("VimResized", {
+        group = group,
+        callback = on_resize_debounced,
     })
 
     vim.api.nvim_create_autocmd("VimLeavePre", {
