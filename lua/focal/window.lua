@@ -178,8 +178,12 @@ function WM:replace_buffer()
     -- Create new scratch buffer.
     local new_buf = vim.api.nvim_create_buf(false, true)
 
-    -- Swap buffer in the window.
-    vim.api.nvim_win_set_buf(self._win, new_buf)
+    -- Swap buffer in the window (pcall guards TOCTOU with is_open check).
+    local swap_ok = pcall(vim.api.nvim_win_set_buf, self._win, new_buf)
+    if not swap_ok then
+        pcall(vim.api.nvim_buf_delete, new_buf, { force = true })
+        return self._buf
+    end
 
     -- Delete old buffer.
     if old_buf and vim.api.nvim_buf_is_valid(old_buf) then
