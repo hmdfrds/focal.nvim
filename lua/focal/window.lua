@@ -143,6 +143,10 @@ end
 ---Closes any active terminal channel, deletes the old buffer.
 ---@return integer new_buf
 function WM:replace_buffer()
+    if not self:is_open() then
+        return self._buf
+    end
+
     local old_buf = self._buf
 
     -- Close terminal channel if active.
