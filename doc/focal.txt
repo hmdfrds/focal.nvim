@@ -165,12 +165,17 @@ Terminals with graphics protocol support (image.nvim):
     ghostty             kitty           TERM_PROGRAM
     Rio                 kitty           TERM_PROGRAM
     iTerm2              sixel           TERM_PROGRAM
+    alacritty           (none)          ALACRITTY_SOCKET / TERM_PROGRAM
     Konsole             kitty           KONSOLE_VERSION
     foot                sixel           TERM (prefix match)
     Windows Terminal    sixel           WT_SESSION
     Contour             sixel           TERMINAL_EMULATOR
+    xterm               (none)          XTERM_VERSION
+    tmux                (none)          TERM (prefix match)
+    screen              (none)          TERM (prefix match)
 
-Terminals without graphics support will use the chafa backend.
+Terminals marked (none) have no graphics protocol support and will
+use the chafa backend.
 
 Additional detection:
 
