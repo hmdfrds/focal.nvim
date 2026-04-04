@@ -39,15 +39,4 @@ T["is_valid() returns false when buffer changed"] = function()
     vim.api.nvim_buf_delete(buf2, { force = true })
 end
 
-T["is_valid() returns false when cursor moved"] = function()
-    local buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "line1", "line2", "line3" })
-    vim.api.nvim_set_current_buf(buf)
-    vim.api.nvim_win_set_cursor(0, { 1, 0 })
-    local g = Guard.new(5, buf, { 1, 0 })
-    vim.api.nvim_win_set_cursor(0, { 2, 0 })
-    MiniTest.expect.equality(Guard.is_valid(g, 5), false)
-    vim.api.nvim_buf_delete(buf, { force = true })
-end
-
 return T

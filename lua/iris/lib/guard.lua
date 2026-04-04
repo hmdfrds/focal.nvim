@@ -30,8 +30,7 @@ function M.is_valid(guard, current_generation)
     if vim.api.nvim_get_current_buf() ~= guard.ctx_buf then
         return false
     end
-    local cur = vim.api.nvim_win_get_cursor(0)
-    return cur[1] == guard.ctx_cursor[1] and cur[2] == guard.ctx_cursor[2]
+    return true
 end
 
 return M
