@@ -114,6 +114,18 @@ function WM:resize(geometry)
     })
 end
 
+---Set the window title. Requires a visible border.
+---@param title string
+function WM:set_title(title)
+    if not self:is_open() then
+        return
+    end
+    if self._config.border == "none" then
+        return
+    end
+    pcall(vim.api.nvim_win_set_config, self._win, { title = title })
+end
+
 ---Reposition the window based on a new anchor.
 ---Recomputes position from scratch instead of reading boxed values.
 ---@param anchor FocalCursorAnchor

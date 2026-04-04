@@ -118,8 +118,14 @@ function PM:_notify_once(key, level, msg, ...)
     if self._notified[key] then
         return
     end
+    if vim.tbl_count(self._notified) > 100 then
+        self._notified = {}
+    end
     self._notified[key] = true
-    vim.notify(string.format(msg, ...), level)
+    local ok, formatted = pcall(string.format, msg, ...)
+    if ok then
+        vim.notify(formatted, level)
+    end
 end
 
 ---Resolve the renderer for a given extension, respecting backend override.
@@ -169,15 +175,9 @@ end
 -- State transitions
 -- ---------------------------------------------------------------------------
 
----Transition to a new state. Performs cleanup when leaving certain states.
+---Transition to a new state.
 ---@param new_state FocalState
 function PM:_transition(new_state)
-    -- Cleanup when leaving rendering state back to idle.
-    if self._state == "rendering" and new_state == "idle" then
-        if self._current_renderer then
-            pcall(self._current_renderer.clear)
-        end
-    end
     self._state = new_state
 end
 
@@ -205,7 +205,10 @@ function PM:hide()
 
     -- Fire user callback.
     if self._config.on_hide then
-        pcall(self._config.on_hide)
+        local ok, err = pcall(self._config.on_hide)
+        if not ok then
+            vim.notify("[focal] on_hide callback error: " .. tostring(err), vim.log.levels.WARN)
+        end
     end
 end
 
@@ -308,7 +311,14 @@ function PM:_do_render(path, stat, renderer, guard, is_swap)
     self:_transition("rendering")
 
     local env = self:_build_env()
-    local geometry = renderer.get_geometry(path, stat, env)
+
+    -- (3a) pcall-wrap renderer.get_geometry()
+    local geo_ok, geometry = pcall(renderer.get_geometry, path, stat, env)
+    if not geo_ok or not geometry then
+        self:hide()
+        return
+    end
+
     local mtime = stat.mtime and stat.mtime.sec or 0
     local max_geo = { width = env.max_width, height = env.max_height }
 
@@ -330,10 +340,21 @@ function PM:_do_render(path, stat, renderer, guard, is_swap)
             title = " " .. fname .. " "
         end
 
-        self._window_mgr:open(geometry, anchor, title)
+        -- (3b) Check open() return values for nil
+        local buf, win = self._window_mgr:open(geometry, anchor, title)
+        if not buf or not win then
+            self:hide()
+            return
+        end
     else
         -- Content swap: resize the existing window to the new geometry.
         self._window_mgr:resize(geometry)
+
+        -- (3c) Update title during content swap.
+        if self._config.title then
+            local fname = vim.fn.fnamemodify(path, ":t")
+            self._window_mgr:set_title(" " .. fname .. " ")
+        end
     end
 
     -- If cached output is available for a terminal renderer, replay it.
@@ -348,7 +369,10 @@ function PM:_do_render(path, stat, renderer, guard, is_swap)
         self:_transition("visible")
         self:_set_current(path, stat, renderer)
         if not is_swap and self._config.on_show then
-            pcall(self._config.on_show, path, renderer.name)
+            local s_ok, s_err = pcall(self._config.on_show, path, renderer.name)
+            if not s_ok then
+                vim.notify("[focal] on_show callback error: " .. tostring(s_err), vim.log.levels.WARN)
+            end
         end
         return
     end
@@ -378,54 +402,78 @@ function PM:_do_render(path, stat, renderer, guard, is_swap)
     -- Start render timeout watchdog.
     local gen = self._generation
     self:_cancel_render_timer()
+
+    -- (3i) Guard vim.uv.new_timer() nil return.
     local render_timer = vim.uv.new_timer()
+    if not render_timer then
+        self:hide()
+        return
+    end
     self._render_timer = render_timer
+
     render_timer:start(self._config.render_timeout_ms or 10000, 0, function()
         if not render_timer:is_closing() then
             render_timer:close()
         end
         vim.schedule(function()
-            if self._generation == gen then
+            -- (3d) Check state=="rendering" to prevent tearing down a visible preview.
+            if self._generation == gen and self._state == "rendering" then
                 self:hide()
             end
         end)
     end)
 
-    -- Invoke the renderer.
-    renderer.render(ctx, function(ok, result)
+    -- (3e) pcall-wrap renderer.render() — on sync throw, cancel timer and hide.
+    local render_ok, render_err = pcall(renderer.render, ctx, function(ok, result)
         vim.schedule(function()
-            -- Cancel the render timeout timer.
-            self:_cancel_render_timer()
+            -- (3f) Wrap entire done-callback body in pcall with fallback to hide().
+            local cb_ok, cb_err = pcall(function()
+                -- Cancel the render timeout timer.
+                self:_cancel_render_timer()
 
-            if not Guard.is_valid(guard, self._generation) then
+                if not Guard.is_valid(guard, self._generation) then
+                    self:hide()
+                    return
+                end
+                if not ok then
+                    self:hide()
+                    return
+                end
+
+                result = result or {}
+
+                -- Tight-fit: resize window to actual rendered content size.
+                if result.fit then
+                    self._window_mgr:resize(result.fit)
+                end
+
+                -- (3h) Cache invalidate before put to clean stale mtime entries.
+                if result.output and renderer.needs_terminal then
+                    self._cache:invalidate(path)
+                    self._cache:put(path, mtime, max_geo, result.output, result.fit or geometry)
+                end
+
+                self:_transition("visible")
+                self:_set_current(path, stat, renderer)
+
+                -- (3g) Log on_show callback errors instead of swallowing.
+                if not is_swap and self._config.on_show then
+                    local s_ok, s_err = pcall(self._config.on_show, path, renderer.name)
+                    if not s_ok then
+                        vim.notify("[focal] on_show callback error: " .. tostring(s_err), vim.log.levels.WARN)
+                    end
+                end
+            end)
+            if not cb_ok then
                 self:hide()
-                return
-            end
-            if not ok then
-                self:hide()
-                return
-            end
-
-            result = result or {}
-
-            -- Tight-fit: resize window to actual rendered content size.
-            if result.fit then
-                self._window_mgr:resize(result.fit)
-            end
-
-            -- Cache the output for terminal renderers.
-            if result.output and renderer.needs_terminal then
-                self._cache:put(path, mtime, max_geo, result.output, result.fit or geometry)
-            end
-
-            self:_transition("visible")
-            self:_set_current(path, stat, renderer)
-
-            if not is_swap and self._config.on_show then
-                pcall(self._config.on_show, path, renderer.name)
             end
         end)
     end)
+
+    if not render_ok then
+        self:_cancel_render_timer()
+        self:hide()
+    end
 end
 
 ---Internal render pipeline. Called after stat succeeds (fresh window).
@@ -442,6 +490,15 @@ end
 ---@param ext string
 ---@param renderer FocalRenderer
 function PM:_content_swap(path, ext, renderer)
+    -- (4a) Bump generation FIRST, before any clear, to cancel in-flight work.
+    self._generation = self._generation + 1
+
+    -- (4b) Nil _current_path immediately to prevent A->B->A race.
+    self._current_path = nil
+
+    -- (4c) Signal async work in flight.
+    self:_transition("resolving")
+
     -- Clear old renderer output.
     if self._current_renderer then
         pcall(self._current_renderer.clear)
@@ -449,9 +506,6 @@ function PM:_content_swap(path, ext, renderer)
 
     -- Replace buffer if the renderer type changes or for terminal renderers.
     self._window_mgr:replace_buffer()
-
-    -- Bump generation for the new content.
-    self._generation = self._generation + 1
 
     local guard = Guard.new(
         self._generation,
@@ -461,8 +515,8 @@ function PM:_content_swap(path, ext, renderer)
     -- Async stat for the new path.
     vim.uv.fs_stat(path, function(err, stat)
         vim.schedule(function()
+            -- (4d) Stale callback should just return, not call hide().
             if not Guard.is_valid(guard, self._generation) then
-                self:hide()
                 return
             end
             if err or not stat then
@@ -525,28 +579,9 @@ function PM:on_cursor_moved(new_path, new_extension)
     end
 end
 
----Handle terminal resize. Visible: reposition or re-render. Rendering: cancel and restart.
+---Handle terminal resize. Always hide+show for both renderer types.
 function PM:on_resize()
-    if self._state == "visible" and self._window_mgr:is_open() then
-        if self._current_renderer and self._current_renderer.needs_terminal then
-            -- Terminal renderers have baked ANSI output — must re-render
-            local path = self._current_path
-            self:hide()
-            if path then
-                self:show(path)
-            end
-        else
-            -- Pixel renderers (image.nvim) can resize in place
-            if self._current_renderer and self._current_path and self._current_stat then
-                local env = self:_build_env()
-                local ok, geometry = pcall(self._current_renderer.get_geometry, self._current_path, self._current_stat, env)
-                if ok and geometry then
-                    self._window_mgr:resize(geometry)
-                end
-            end
-            self._window_mgr:reposition(self:_create_anchor())
-        end
-    elseif self._state == "rendering" then
+    if (self._state == "visible" and self._window_mgr:is_open()) or self._state == "rendering" then
         local path = self._current_path
         self:hide()
         if path then
@@ -556,7 +591,7 @@ function PM:on_resize()
 end
 
 ---Return structured diagnostic data about the preview manager state.
----@return { state: FocalState, generation: integer, current_path: string|nil, renderer: string|nil, cache: table }
+---@return { state: FocalState, generation: integer, current_path: string|nil, renderer: string|nil, cache: table, config: FocalConfig }
 function PM:status()
     return {
         state = self._state,
@@ -564,6 +599,7 @@ function PM:status()
         current_path = self._current_path,
         renderer = self:get_current_renderer_name(),
         cache = self._cache:stats(),
+        config = self._config,
     }
 end
 
