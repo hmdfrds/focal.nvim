@@ -137,8 +137,17 @@ function PM:_resolve_renderer(ext)
     local renderer
     if self._config.backend and self._config.backend ~= "auto" then
         renderer = self._renderer_registry.find_by_name(self._config.backend)
+        if not renderer then
+            self:_notify_once(
+                "backend_notfound_" .. self._config.backend,
+                vim.log.levels.ERROR,
+                "[focal] Backend '%s' not found. Run :checkhealth focal for details.",
+                self._config.backend
+            )
+            return nil
+        end
         local avail_ok, avail = pcall(renderer.is_available)
-        if not renderer or not (avail_ok and avail) then
+        if not (avail_ok and avail) then
             self:_notify_once(
                 "backend_unavail_" .. self._config.backend,
                 vim.log.levels.ERROR,
@@ -259,10 +268,7 @@ function PM:show(path)
     self._generation = self._generation + 1
     self:_transition("resolving")
 
-    local guard = Guard.new(
-        self._generation,
-        vim.api.nvim_get_current_buf()
-    )
+    local guard = Guard.new(self._generation, vim.api.nvim_get_current_buf())
 
     -- Async stat the file.
     vim.uv.fs_stat(path, function(err, stat)
@@ -510,10 +516,7 @@ function PM:_content_swap(path, ext, renderer)
     -- Replace buffer if the renderer type changes or for terminal renderers.
     self._window_mgr:replace_buffer()
 
-    local guard = Guard.new(
-        self._generation,
-        vim.api.nvim_get_current_buf()
-    )
+    local guard = Guard.new(self._generation, vim.api.nvim_get_current_buf())
 
     -- Async stat for the new path.
     vim.uv.fs_stat(path, function(err, stat)
