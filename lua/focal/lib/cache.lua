@@ -94,11 +94,20 @@ function Cache:put(path, mtime, max_geometry, output, fit_geometry)
     local key = make_key(path, mtime, max_geometry)
     local existing = self._entries[key]
     if existing then
+        -- Remove the old entry completely before eviction so that
+        -- _evict_oldest() cannot double-subtract its bytes.
         self._bytes = self._bytes - #existing.output
+        self._entries[key] = nil
+        for i, k in ipairs(self._order) do
+            if k == key then
+                table.remove(self._order, i)
+                break
+            end
+        end
     end
 
     -- Evict until we have room for the new entry
-    while #self._order >= self._max_entries and not existing do
+    while #self._order >= self._max_entries do
         self:_evict_oldest()
     end
     while self._bytes + #output > self._max_bytes and #self._order > 0 do
@@ -110,12 +119,7 @@ function Cache:put(path, mtime, max_geometry, output, fit_geometry)
         fit_geometry = fit_geometry,
     }
     self._bytes = self._bytes + #output
-
-    if not existing then
-        self._order[#self._order + 1] = key
-    else
-        self:_touch(key)
-    end
+    self._order[#self._order + 1] = key
 end
 
 ---Remove all entries for a specific path (any mtime/geometry).
