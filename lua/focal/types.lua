@@ -56,7 +56,6 @@
 ---@class FocalGuard
 ---@field generation integer
 ---@field ctx_buf integer
----@field ctx_cursor integer[]
 
 ---Cache entry. The mtime and max_geometry are encoded in the cache key, not stored here.
 ---@class FocalCacheEntry

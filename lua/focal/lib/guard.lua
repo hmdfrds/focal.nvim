@@ -9,13 +9,11 @@ local M = {}
 ---Create a new guard capturing the current context.
 ---@param generation integer Current generation counter value
 ---@param buf integer Buffer ID at dispatch time
----@param cursor integer[] Cursor position {row, col} at dispatch time
 ---@return FocalGuard
-function M.new(generation, buf, cursor)
+function M.new(generation, buf)
     return {
         generation = generation,
         ctx_buf = buf,
-        ctx_cursor = { cursor[1], cursor[2] },
     }
 end
 
