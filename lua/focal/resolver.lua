@@ -1,3 +1,5 @@
+---@mod focal.resolver "Source Registry"
+
 local M = {}
 
 --- @type table<string, table>
@@ -11,7 +13,7 @@ local builtin_modules = {
 }
 
 --- Validate and register a source adapter.
---- @param source table must have `filetype` (non-empty string) and `get_path` (function)
+--- @param source FocalSource must have `filetype` (non-empty string) and `get_path` (function)
 --- @return boolean
 function M.register_source(source)
     if type(source) ~= "table" then
@@ -32,7 +34,7 @@ end
 
 --- O(1) lookup of a registered source by filetype.
 --- @param filetype string
---- @return table|nil
+--- @return FocalSource|nil
 function M.resolve(filetype)
     return ft_map[filetype]
 end

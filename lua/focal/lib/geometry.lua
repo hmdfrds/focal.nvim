@@ -72,10 +72,18 @@ function M.adaptive_position(width, height, anchor, col_offset, row_offset, edit
 end
 
 ---Compute overflow margin from border style.
----@param border string|string[]
+---@param border string|string[]|string[][]
 ---@return integer
 function M.overflow_margin(border)
     if border == "none" then
+        return 0
+    end
+    if type(border) == "table" then
+        for _, v in ipairs(border) do
+            if v and v ~= "" and v ~= false then
+                return 2
+            end
+        end
         return 0
     end
     return 2

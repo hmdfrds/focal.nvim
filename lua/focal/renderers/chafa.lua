@@ -42,6 +42,7 @@ end
 ---@return string[]
 local function build_args(path, width, height, config)
     local args = {
+        "--polite=on",
         "--size=" .. width .. "x" .. height,
         "--format=" .. config.chafa.format,
     }
@@ -100,10 +101,13 @@ function M.render(ctx, done)
             end
             pcall(vim.api.nvim_chan_send, ctx.chan, stdout)
 
-            -- Count actual output lines for tight-fit height.
-            local line_count = 1
-            for _ in stdout:gmatch("\n") do
+            -- Count actual non-empty output lines for tight-fit height.
+            local line_count = 0
+            for _ in stdout:gmatch("[^\n]+") do
                 line_count = line_count + 1
+            end
+            if line_count == 0 then
+                line_count = 1
             end
             local fit_height = math.min(line_count, ctx.geometry.height)
 

@@ -11,8 +11,7 @@
 
 ---@class FocalConfig
 ---@field enabled boolean
----@field debug boolean
----@field border string
+---@field border string|string[]|string[][]
 ---@field winblend integer
 ---@field zindex integer
 ---@field title boolean
@@ -30,15 +29,14 @@
 ---@field chafa FocalChafaConfig
 ---@field extensions string[]?
 ---@field render_timeout_ms integer
----@field on_show function?
----@field on_hide function?
+---@field on_show fun(path: string, renderer_name: string)?
+---@field on_hide fun()?
 
 local M = {}
 
 ---@type FocalConfig
 M.defaults = {
     enabled = true,
-    debug = false,
     border = "rounded",
     winblend = 0,
     zindex = 100,
@@ -70,7 +68,6 @@ M.defaults = {
 ---@type table<string, string>
 local expected_types = {
     enabled = "boolean",
-    debug = "boolean",
     border = "string|table",
     winblend = "number",
     zindex = "number",
@@ -247,6 +244,47 @@ function M.merge(user_opts)
     validate_min_max(cfg, "min_width", "max_width")
     validate_min_max(cfg, "min_height", "max_height")
 
+    -- Range clamping.
+    for _, dim_key in ipairs({ "min_width", "min_height", "max_width", "max_height" }) do
+        if cfg[dim_key] and cfg[dim_key] < 1 then
+            warn(string.format("[focal] config.%s clamped to 1 (was %d)", dim_key, cfg[dim_key]))
+            cfg[dim_key] = 1
+        end
+    end
+    if cfg.winblend then
+        cfg.winblend = math.max(0, math.min(100, cfg.winblend))
+    end
+    if cfg.max_width_percent then
+        cfg.max_width_percent = math.max(1, math.min(100, cfg.max_width_percent))
+    end
+    if cfg.max_height_percent then
+        cfg.max_height_percent = math.max(1, math.min(100, cfg.max_height_percent))
+    end
+
+    -- Warn about unknown chafa sub-keys.
+    if type(user_opts.chafa) == "table" then
+        local chafa_known = { format = true, color_space = true, animate = true, max_output_bytes = true }
+        for key, _ in pairs(user_opts.chafa) do
+            if not chafa_known[key] then
+                local best_key = nil
+                local best_score = 0
+                for known_key, _ in pairs(chafa_known) do
+                    local score = char_overlap(key, known_key)
+                    if score > best_score then
+                        best_score = score
+                        best_key = known_key
+                    end
+                end
+                local min_len = math.min(#key, #(best_key or ""))
+                if best_key and best_score >= math.ceil(min_len / 2) then
+                    warn(string.format("[focal] Unknown chafa key '%s'. Did you mean '%s'?", key, best_key))
+                else
+                    warn(string.format("[focal] Unknown chafa key '%s'.", key))
+                end
+            end
+        end
+    end
+
     -- Validate chafa sub-table fields.
     if type(cfg.chafa.format) ~= "string" then
         warn("[focal] config.chafa.format must be string, using default")
@@ -259,6 +297,10 @@ function M.merge(user_opts)
     if type(cfg.chafa.max_output_bytes) ~= "number" then
         warn("[focal] config.chafa.max_output_bytes must be number, using default")
         cfg.chafa.max_output_bytes = M.defaults.chafa.max_output_bytes
+    end
+    if cfg.chafa.color_space ~= nil and type(cfg.chafa.color_space) ~= "string" then
+        warn("[focal] config.chafa.color_space must be string or nil, using default")
+        cfg.chafa.color_space = M.defaults.chafa.color_space
     end
 
     return cfg

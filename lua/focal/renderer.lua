@@ -1,3 +1,5 @@
+---@mod focal.renderer "Renderer Registry"
+
 local M = {}
 
 --- @type FocalRenderer[]
@@ -68,6 +70,9 @@ local function validate(renderer)
     if type(renderer.cleanup) ~= "function" then
         return fail("cleanup must be a function")
     end
+    if type(renderer.needs_terminal) ~= "boolean" then
+        return fail("needs_terminal must be a boolean")
+    end
     return true
 end
 
@@ -96,7 +101,8 @@ function M.find_renderer(extension)
         return nil
     end
     for _, r in ipairs(candidates) do
-        if r.is_available() then
+        local avail_ok, avail = pcall(r.is_available)
+        if avail_ok and avail then
             return r
         end
     end
@@ -179,8 +185,14 @@ function M.load_builtins()
                 end
                 return true
             end
-            mod.register(M)
+            local reg_ok, reg_err = pcall(mod.register, M)
             M.register_renderer = orig
+            if not reg_ok then
+                vim.notify(
+                    string.format("[focal] Failed to load builtin renderer '%s': %s", path, tostring(reg_err)),
+                    vim.log.levels.WARN
+                )
+            end
         end
     end
 end

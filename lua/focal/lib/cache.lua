@@ -88,6 +88,9 @@ end
 ---@param output string ANSI output from chafa
 ---@param fit_geometry FocalGeometry Actual fitted dimensions
 function Cache:put(path, mtime, max_geometry, output, fit_geometry)
+    if #output > self._max_bytes then
+        return
+    end
     local key = make_key(path, mtime, max_geometry)
     local existing = self._entries[key]
     if existing then

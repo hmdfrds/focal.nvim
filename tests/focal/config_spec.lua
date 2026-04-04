@@ -4,7 +4,6 @@ local Config = require("focal.config")
 T["defaults returned when no user opts"] = function()
     local cfg = Config.merge({})
     MiniTest.expect.equality(cfg.enabled, true)
-    MiniTest.expect.equality(cfg.debug, false)
     MiniTest.expect.equality(cfg.border, "rounded")
     MiniTest.expect.equality(cfg.zindex, 100)
     MiniTest.expect.equality(cfg.min_width, 10)
@@ -12,9 +11,8 @@ T["defaults returned when no user opts"] = function()
 end
 
 T["user opts override defaults"] = function()
-    local cfg = Config.merge({ zindex = 200, debug = true })
+    local cfg = Config.merge({ zindex = 200 })
     MiniTest.expect.equality(cfg.zindex, 200)
-    MiniTest.expect.equality(cfg.debug, true)
     MiniTest.expect.equality(cfg.border, "rounded")
 end
 

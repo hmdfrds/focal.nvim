@@ -15,12 +15,15 @@ local terminals = {
     { env_key = "TERM_PROGRAM", value = "WezTerm", terminal = "WezTerm", protocol = "kitty" },
     { env_key = "TERM_PROGRAM", value = "ghostty", terminal = "ghostty", protocol = "kitty" },
     { env_key = "TERM_PROGRAM", value = "iTerm.app", terminal = "iTerm2", protocol = "sixel" },
+    { env_key = "TERM_PROGRAM", value = "alacritty", terminal = "alacritty", protocol = nil },
     { env_key = "KONSOLE_VERSION", terminal = "Konsole", protocol = "sixel" },
     { env_key = "TERM", prefix = "foot", terminal = "foot", protocol = "sixel" },
     { env_key = "WT_SESSION", terminal = "Windows Terminal", protocol = "sixel" },
     { env_key = "TERM_PROGRAM", value = "rio", terminal = "Rio", protocol = "kitty" },
     { env_key = "TERMINAL_EMULATOR", value = "contour", terminal = "Contour", protocol = "sixel" },
-    { env_key = "MOSH_CONNECTION", terminal = "mosh", protocol = nil },
+    { env_key = "XTERM_VERSION", terminal = "xterm", protocol = nil },
+    { env_key = "TERM", prefix = "screen", terminal = "screen", protocol = nil },
+    { env_key = "MOSH_SERVER_PID", terminal = "mosh", protocol = nil },
 }
 
 ---Detect terminal graphics capability. Cached for session lifetime.
@@ -35,8 +38,8 @@ function M.detect()
         protocol = nil,
         terminal = nil,
         in_tmux = vim.env.TMUX ~= nil,
-        in_ssh = vim.env.SSH_CLIENT ~= nil or vim.env.SSH_TTY ~= nil,
-        in_mosh = vim.env.MOSH_CONNECTION ~= nil,
+        in_ssh = vim.env.SSH_CLIENT ~= nil or vim.env.SSH_TTY ~= nil or vim.env.SSH_CONNECTION ~= nil,
+        in_mosh = vim.env.MOSH_SERVER_PID ~= nil,
     }
 
     for _, entry in ipairs(terminals) do
@@ -46,7 +49,7 @@ function M.detect()
             if entry.value then
                 match = (env_val == entry.value)
             elseif entry.prefix then
-                match = (env_val:find("^" .. entry.prefix) ~= nil)
+                match = vim.startswith(env_val, entry.prefix)
             else
                 match = true
             end
@@ -61,11 +64,6 @@ function M.detect()
 
     _cached = info
     return _cached
-end
-
----Clear cached detection result.
-function M.reset_cache()
-    _cached = nil
 end
 
 return M

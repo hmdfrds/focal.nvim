@@ -22,6 +22,11 @@ function M.get_path()
     local path = item.file or item._path
     if not path then return nil end
 
+    if path and vim.fn.isabsolutepath(path) == 0 then
+        local cwd = picker.opts and picker.opts.cwd or vim.fn.getcwd()
+        path = vim.fs.joinpath(cwd, path)
+    end
+
     return path
 end
 

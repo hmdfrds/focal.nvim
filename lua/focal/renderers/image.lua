@@ -123,7 +123,7 @@ end
 function M.register(registry)
     registry.register_renderer({
         name = "image.nvim",
-        extensions = { "png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "avif" },
+        extensions = { "png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "tif", "avif" },
         priority = 100,
         needs_terminal = false,
         is_available = M.is_available,
