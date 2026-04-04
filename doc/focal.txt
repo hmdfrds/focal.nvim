@@ -23,7 +23,7 @@ CONTENTS                                                      *focal-contents*
 1. INTRODUCTION                                           *focal-introduction*
 
 focal.nvim provides automatic image previews in Neovim file explorers.
-Hover over a file in neo-tree, nvim-tree, oil.nvim, or snacks.explorer
+Hover over a file in neo-tree, nvim-tree, oil.nvim, or snacks.nvim (picker)
 and a floating preview window appears beside the cursor.
 
 Key features:
@@ -59,7 +59,7 @@ At least one supported file explorer:
 - neo-tree.nvim
 - nvim-tree.lua
 - oil.nvim
-- snacks.explorer
+- snacks.nvim (picker)
 
 ==============================================================================
 3. SETUP                                                        *focal-setup*
@@ -93,10 +93,7 @@ Below are the defaults: >lua
         -- Master switch. Toggle at runtime with :FocalToggle.
         enabled = true,
 
-        -- Print debug messages to :messages.
-        debug = false,
-
-        -- Float window border style (see :h nvim_open_win).
+        -- Float window border style (see |nvim_open_win()|).
         border = "rounded",
 
         -- Float window transparency (0 = opaque, 100 = invisible).
@@ -131,7 +128,7 @@ Below are the defaults: >lua
         col_offset = 4,
         row_offset = 1,
 
-        -- Force a specific renderer: "image.nvim", "chafa", or nil for auto.
+        -- Force a specific renderer: "auto", "image.nvim", "chafa", or nil for auto.
         backend = nil,
 
         -- Chafa-specific settings.
@@ -329,7 +326,7 @@ Run `:checkhealth focal` to diagnose common problems.
 No preview appears~
 - Verify a backend is available: `:checkhealth focal`
 - Check that the file extension is supported (png, jpg, jpeg, webp,
-  gif, bmp, tiff, avif, svg for chafa).
+  gif, bmp, tiff, avif, svg (chafa only)).
 - Ensure `enabled = true` or run `:FocalEnable`.
 - Lower `updatetime` to 300-500ms for responsive CursorHold events.
 

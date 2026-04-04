@@ -91,7 +91,9 @@ function PM:_build_env()
         self._config.max_height,
         Geo.overflow_margin(self._config.border)
     )
-    -- Determine terminal cell pixel size (fallback to common defaults).
+    -- Cell pixel dimensions. No standard env var exists across terminals.
+    -- The 8x16 defaults are the most common monospace cell size.
+    -- For HiDPI terminals, image.nvim computes its own pixel dimensions internally.
     local cell_w = 8
     local cell_h = 16
     if vim.o.columns > 0 and vim.o.lines > 0 then

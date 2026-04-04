@@ -36,6 +36,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 ```lua
 {
   "hmdfrds/focal.nvim",
+  event = "VeryLazy",
   dependencies = {
     "3rd/image.nvim", -- optional if using chafa backend
   },
@@ -60,9 +61,6 @@ require("focal").setup({
   -- Runtime toggle
   enabled = true,
 
-  -- Debug logging (verbose output to :messages)
-  debug = false,
-
   -- Window appearance
   border = "rounded",       -- border style (any valid nvim_open_win border)
   winblend = 0,             -- transparency (0-100)
@@ -86,7 +84,7 @@ require("focal").setup({
   row_offset = 1,           -- vertical gap from cursor
 
   -- Renderer override
-  backend = nil,            -- nil = auto, "image.nvim", or "chafa"
+  backend = nil,            -- nil/"auto" = auto, "image.nvim", or "chafa"
 
   -- Extension whitelist (nil = all renderer-declared extensions)
   extensions = nil,         -- e.g., { "png", "jpg" } to restrict
