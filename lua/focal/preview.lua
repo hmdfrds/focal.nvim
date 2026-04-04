@@ -330,7 +330,12 @@ function PM:_do_render(path, stat, renderer, guard, is_swap)
 
     -- (3a) pcall-wrap renderer.get_geometry()
     local geo_ok, geometry = pcall(renderer.get_geometry, path, stat, env)
-    if not geo_ok or type(geometry) ~= "table" or not geometry.width or not geometry.height then
+    if
+        not geo_ok
+        or type(geometry) ~= "table"
+        or type(geometry.width) ~= "number"
+        or type(geometry.height) ~= "number"
+    then
         self:hide()
         return
     end
