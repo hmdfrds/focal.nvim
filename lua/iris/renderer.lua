@@ -138,6 +138,20 @@ function M.set_whitelist(exts)
     end
 end
 
+--- Return all registered renderers (deduplicated by name).
+--- @return IrisRenderer[]
+function M.get_all_renderers()
+    local seen = {}
+    local result = {}
+    for _, r in ipairs(renderers) do
+        if not seen[r.name] then
+            seen[r.name] = true
+            result[#result + 1] = r
+        end
+    end
+    return result
+end
+
 --- Load built-in renderer modules.
 function M.load_builtins()
     for _, path in ipairs(builtin_paths) do

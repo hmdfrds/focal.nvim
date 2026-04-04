@@ -177,8 +177,7 @@ local function on_cursor_hold()
     end
     if _cfg.debounce_ms > 0 then
         cancel_debounce()
-        local uv = vim.uv or vim.loop
-        _debounce_timer = uv.new_timer()
+        _debounce_timer = vim.uv.new_timer()
         _debounce_timer:start(_cfg.debounce_ms, 0, vim.schedule_wrap(function()
             cancel_debounce()
             if not _cfg or not _cfg.enabled then
@@ -226,6 +225,12 @@ local function on_vim_leave()
     cancel_debounce()
     if _preview_mgr then
         _preview_mgr:hide()
+    end
+    -- Call cleanup() on all registered renderers to release resources.
+    if _renderer then
+        for _, r in ipairs(_renderer.get_all_renderers()) do
+            pcall(r.cleanup)
+        end
     end
 end
 
@@ -347,6 +352,20 @@ function M.setup(user_opts)
             local source = _resolver.resolve(ft)
             if source then
                 _pending_sources[#_pending_sources + 1] = source
+            end
+        end
+
+        -- Snapshot renderer registrations too
+        for _, r_ext in ipairs(_renderer.get_supported_extensions()) do
+            local r = _renderer.find_renderer(r_ext)
+            if r then
+                local exists = false
+                for _, pr in ipairs(_pending_renderers) do
+                    if pr.name == r.name then exists = true; break end
+                end
+                if not exists then
+                    table.insert(_pending_renderers, r)
+                end
             end
         end
     end
