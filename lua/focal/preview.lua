@@ -430,13 +430,13 @@ function PM:_do_render(path, stat, renderer, guard, is_swap)
         vim.schedule(function()
             -- (3f) Wrap entire done-callback body in pcall with fallback to hide().
             local cb_ok, cb_err = pcall(function()
-                -- Cancel the render timeout timer.
-                self:_cancel_render_timer()
-
+                -- Stale callback: do nothing. A newer operation owns the state.
                 if not Guard.is_valid(guard, self._generation) then
-                    self:hide()
                     return
                 end
+
+                -- Cancel the render timeout timer (only for the current render).
+                self:_cancel_render_timer()
                 if not ok then
                     self:hide()
                     return
