@@ -8,16 +8,25 @@ function M.get_path()
     local ok, snacks = pcall(require, "snacks")
     if not ok then return nil end
 
-    local pickers = snacks.picker.get()
-    if not pickers or #pickers == 0 then return nil end
+    local pickers_ok, pickers = pcall(snacks.picker.get)
+    if not pickers_ok or not pickers or #pickers == 0 then return nil end
 
     local picker = pickers[1]
     if not picker then return nil end
 
-    local item = picker:current()
-    if not item then return nil end
+    local item_ok, item = pcall(picker.current, picker)
+    if not item_ok or not item then return nil end
 
-    return item.file or item._path
+    local path = item.file or item._path
+    if not path then return nil end
+
+    -- Filter out directories.
+    local stat = vim.uv.fs_stat(path)
+    if stat and stat.type == "directory" then
+        return nil
+    end
+
+    return path
 end
 
 return M

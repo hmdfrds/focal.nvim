@@ -8,8 +8,10 @@ function M.get_path()
     local ok, api = pcall(require, "nvim-tree.api")
     if not ok then return nil end
 
-    local node = api.tree.get_node_under_cursor()
-    if node and node.absolute_path and node.type ~= "directory" then
+    local node_ok, node = pcall(api.tree.get_node_under_cursor)
+    if not node_ok or not node then return nil end
+
+    if node.absolute_path and node.type ~= "directory" then
         return node.absolute_path
     end
 
