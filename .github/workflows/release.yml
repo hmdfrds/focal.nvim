@@ -17,7 +17,11 @@ jobs:
       - name: Generate release notes
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)
-          git log ${PREV_TAG}..HEAD --oneline > RELEASE_NOTES.md
+          echo "## What's Changed" > RELEASE_NOTES.md
+          git log ${PREV_TAG}..HEAD --oneline --grep="^feat" --grep="^fix" --extended-regexp >> RELEASE_NOTES.md || true
+          if [ ! -s RELEASE_NOTES.md ] || [ "$(wc -l < RELEASE_NOTES.md)" -le 1 ]; then
+            echo "Maintenance release." >> RELEASE_NOTES.md
+          fi
       - uses: softprops/action-gh-release@v2
         with:
           body_path: RELEASE_NOTES.md
