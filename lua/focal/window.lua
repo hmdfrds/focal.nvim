@@ -20,6 +20,7 @@ function M.new(config)
         _buf = nil,
         _chan = nil,
         _config = config,
+        _last_anchor = nil,
     }, WM)
 end
 
@@ -40,14 +41,33 @@ function WM:open(geometry, anchor, title)
 
     -- Clamp geometry to terminal size minus border margin.
     local margin = Geo.overflow_margin(self._config.border)
-    local max_w = math.max(1, vim.o.columns - margin)
-    local max_h = math.max(1, vim.o.lines - margin)
+    local editor_cols = vim.o.columns
+    local editor_lines = vim.o.lines
+    local max_w = math.max(1, editor_cols - margin)
+    local max_h = math.max(1, editor_lines - margin)
     local width = math.min(geometry.width, max_w)
     local height = math.min(geometry.height, max_h)
 
-    -- Compute adaptive position.
-    local pos =
-        Geo.adaptive_position(width, height, anchor, self._config.col_offset, self._config.row_offset, vim.o.columns)
+    -- Constrain width to the space available on the best side of the cursor.
+    -- This prevents the float from overlapping multi-column layouts.
+    local cursor_col = anchor.screen_col - 1 -- 0-indexed
+    local space_right = editor_cols - cursor_col - self._config.col_offset - 1 - margin
+    local space_left = cursor_col - self._config.col_offset - margin
+    local best_side = math.max(space_right, space_left)
+    if best_side > 0 then
+        width = math.min(width, best_side)
+    end
+
+    -- Compute position.
+    local pos = Geo.adaptive_position(
+        width,
+        height,
+        anchor,
+        self._config.col_offset,
+        self._config.row_offset,
+        editor_cols,
+        editor_lines
+    )
 
     -- Create scratch buffer.
     local buf_ok, buf = pcall(vim.api.nvim_create_buf, false, true)
@@ -57,7 +77,7 @@ function WM:open(geometry, anchor, title)
 
     -- Build window config.
     local win_config = {
-        relative = "cursor",
+        relative = "editor",
         row = pos.row,
         col = pos.col,
         width = width,
@@ -87,11 +107,13 @@ function WM:open(geometry, anchor, title)
 
     self._buf = buf
     self._win = win
+    self._last_anchor = anchor
 
     return buf, win
 end
 
----Resize the current window. Clamps geometry to terminal size.
+---Resize the current window. Clamps geometry to terminal size and
+---constrains to available space using the last known anchor.
 ---@param geometry FocalGeometry
 function WM:resize(geometry)
     if not self:is_open() then
@@ -99,10 +121,22 @@ function WM:resize(geometry)
     end
     -- Clamp geometry the same way open() does.
     local margin = Geo.overflow_margin(self._config.border)
-    local max_w = math.max(1, vim.o.columns - margin)
+    local editor_cols = vim.o.columns
+    local max_w = math.max(1, editor_cols - margin)
     local max_h = math.max(1, vim.o.lines - margin)
     local width = math.min(geometry.width, max_w)
     local height = math.min(geometry.height, max_h)
+
+    -- Constrain to available space if we have a stored anchor.
+    if self._last_anchor then
+        local cursor_col = self._last_anchor.screen_col - 1
+        local space_right = editor_cols - cursor_col - self._config.col_offset - 1 - margin
+        local space_left = cursor_col - self._config.col_offset - margin
+        local best_side = math.max(space_right, space_left)
+        if best_side > 0 then
+            width = math.min(width, best_side)
+        end
+    end
 
     -- Only pass width and height; Neovim preserves unspecified keys.
     pcall(vim.api.nvim_win_set_config, self._win, {
@@ -124,7 +158,7 @@ function WM:set_title(title)
 end
 
 ---Reposition the window based on a new anchor.
----Recomputes position from scratch instead of reading boxed values.
+---Recomputes editor-absolute position from the screen-absolute anchor.
 ---@param anchor FocalCursorAnchor
 function WM:reposition(anchor)
     if not self:is_open() then
@@ -142,10 +176,18 @@ function WM:reposition(anchor)
     if type(width) ~= "number" or type(height) ~= "number" then
         return
     end
-    local pos =
-        Geo.adaptive_position(width, height, anchor, self._config.col_offset, self._config.row_offset, vim.o.columns)
+    local pos = Geo.adaptive_position(
+        width,
+        height,
+        anchor,
+        self._config.col_offset,
+        self._config.row_offset,
+        vim.o.columns,
+        vim.o.lines
+    )
+    self._last_anchor = anchor
     pcall(vim.api.nvim_win_set_config, self._win, {
-        relative = "cursor",
+        relative = "editor",
         row = pos.row,
         col = pos.col,
         width = width,

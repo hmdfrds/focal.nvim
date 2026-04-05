@@ -23,7 +23,7 @@ local T = MiniTest.new_set({
 })
 
 T["open() creates valid buffer and window"] = function()
-    local anchor = { screen_row = 5, screen_col = 10, win_width = 80, win_height = 40 }
+    local anchor = { screen_row = 5, screen_col = 10 }
     local geometry = { width = 30, height = 15 }
     local buf, win = wm:open(geometry, anchor)
     MiniTest.expect.equality(vim.api.nvim_buf_is_valid(buf), true)
@@ -31,7 +31,7 @@ T["open() creates valid buffer and window"] = function()
 end
 
 T["close() is idempotent"] = function()
-    local anchor = { screen_row = 5, screen_col = 10, win_width = 80, win_height = 40 }
+    local anchor = { screen_row = 5, screen_col = 10 }
     local geometry = { width = 30, height = 15 }
     wm:open(geometry, anchor)
     wm:close()
@@ -41,7 +41,7 @@ end
 
 T["is_open() tracks window state"] = function()
     MiniTest.expect.equality(wm:is_open(), false)
-    local anchor = { screen_row = 5, screen_col = 10, win_width = 80, win_height = 40 }
+    local anchor = { screen_row = 5, screen_col = 10 }
     local geometry = { width = 30, height = 15 }
     wm:open(geometry, anchor)
     MiniTest.expect.equality(wm:is_open(), true)
@@ -50,7 +50,7 @@ T["is_open() tracks window state"] = function()
 end
 
 T["replace_buffer() swaps buffer in existing window"] = function()
-    local anchor = { screen_row = 5, screen_col = 10, win_width = 80, win_height = 40 }
+    local anchor = { screen_row = 5, screen_col = 10 }
     local geometry = { width = 30, height = 15 }
     wm:open(geometry, anchor)
     local buf1 = wm:get_buf()
@@ -63,7 +63,7 @@ T["replace_buffer() swaps buffer in existing window"] = function()
 end
 
 T["get_buf() and get_win() return current handles"] = function()
-    local anchor = { screen_row = 5, screen_col = 10, win_width = 80, win_height = 40 }
+    local anchor = { screen_row = 5, screen_col = 10 }
     local geometry = { width = 30, height = 15 }
     local buf, win = wm:open(geometry, anchor)
     MiniTest.expect.equality(wm:get_buf(), buf)
@@ -74,7 +74,7 @@ T["get_buf() and get_win() return current handles"] = function()
 end
 
 T["open() clamps geometry to terminal size"] = function()
-    local anchor = { screen_row = 5, screen_col = 10, win_width = 80, win_height = 40 }
+    local anchor = { screen_row = 5, screen_col = 10 }
     local geometry = { width = 9999, height = 9999 }
     local _, win = wm:open(geometry, anchor)
     local win_config = vim.api.nvim_win_get_config(win)

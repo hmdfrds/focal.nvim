@@ -70,14 +70,14 @@ end
 -- Internal helpers
 -- ---------------------------------------------------------------------------
 
----Read cursor position and surrounding window geometry to build an anchor.
+---Read cursor screen-absolute position for float placement.
+---Uses vim.fn.screenpos() which works for both splits and floating windows.
 ---@return FocalCursorAnchor
 function PM:_create_anchor()
+    local pos = vim.fn.screenpos(0, vim.fn.line("."), vim.fn.col("."))
     return {
-        screen_row = vim.fn.winline(),
-        screen_col = vim.fn.wincol(),
-        win_width = vim.api.nvim_win_get_width(0),
-        win_height = vim.api.nvim_win_get_height(0),
+        screen_row = pos.row,
+        screen_col = pos.col,
     }
 end
 
@@ -380,7 +380,9 @@ function PM:_do_render(path, stat, renderer, guard, is_swap)
             return
         end
     else
-        -- Content swap: resize the existing window to the new geometry.
+        -- Content swap: reposition and resize the window to follow the cursor.
+        local anchor = self:_create_anchor()
+        self._window_mgr:reposition(anchor)
         self._window_mgr:resize(geometry)
 
         -- (3c) Update title during content swap.

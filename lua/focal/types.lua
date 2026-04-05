@@ -48,10 +48,8 @@
 ---@alias FocalBackend "auto" | string
 
 ---@class FocalCursorAnchor
----@field screen_row integer
----@field screen_col integer
----@field win_width integer
----@field win_height integer
+---@field screen_row integer  1-indexed absolute screen row (from vim.fn.screenpos)
+---@field screen_col integer  1-indexed absolute screen col (from vim.fn.screenpos)
 
 ---@class FocalGuard
 ---@field generation integer

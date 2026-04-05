@@ -38,22 +38,26 @@ T["max_available() with zero margin"] = function()
 end
 
 T["adaptive_position() places right and below by default"] = function()
-    local pos =
-        Geo.adaptive_position(20, 10, { screen_row = 5, screen_col = 10, win_width = 80, win_height = 40 }, 4, 1, 80)
-    MiniTest.expect.equality(pos.col, 4)
-    MiniTest.expect.equality(pos.row, 1)
+    -- Cursor at screen (5, 10), 1-indexed. Float: 20w x 10h. Editor: 80x40.
+    local pos = Geo.adaptive_position(20, 10, { screen_row = 5, screen_col = 10 }, 4, 1, 80, 40)
+    -- col: cursor_col(9) + offset(4) + 1 = 14
+    MiniTest.expect.equality(pos.col, 14)
+    -- row: cursor_row(4) + offset(1) = 5
+    MiniTest.expect.equality(pos.row, 5)
 end
 
 T["adaptive_position() flips left when overflow right"] = function()
-    local pos =
-        Geo.adaptive_position(20, 10, { screen_row = 5, screen_col = 70, win_width = 80, win_height = 40 }, 4, 1, 80)
-    MiniTest.expect.equality(pos.col, -24)
+    -- Cursor at screen col 70. Float 20w. 70-1 + 4 + 1 + 20 = 94 > 80, so flip left.
+    local pos = Geo.adaptive_position(20, 10, { screen_row = 5, screen_col = 70 }, 4, 1, 80, 40)
+    -- col: cursor_col(69) - width(20) - offset(4) = 45
+    MiniTest.expect.equality(pos.col, 45)
 end
 
 T["adaptive_position() flips above when overflow below"] = function()
-    local pos =
-        Geo.adaptive_position(20, 10, { screen_row = 35, screen_col = 10, win_width = 80, win_height = 40 }, 4, 1, 80)
-    MiniTest.expect.equality(pos.row, -11)
+    -- Cursor at screen row 35. Float 10h. 35-1 + 1 + 10 = 45 > 40, so flip above.
+    local pos = Geo.adaptive_position(20, 10, { screen_row = 35, screen_col = 10 }, 4, 1, 80, 40)
+    -- row: cursor_row(34) - height(10) - offset(1) = 23
+    MiniTest.expect.equality(pos.row, 23)
 end
 
 T["overflow_margin() returns 2 for bordered, 0 for none"] = function()

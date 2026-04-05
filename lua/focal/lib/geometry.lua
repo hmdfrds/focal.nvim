@@ -51,23 +51,35 @@ function M.max_available(columns, lines, max_w_pct, max_h_pct, max_w, max_h, mar
     return { width = math.max(1, w), height = math.max(1, h) }
 end
 
----Compute adaptive float position relative to cursor.
+---Compute editor-absolute float position from screen-absolute cursor coords.
+---Returns 0-indexed {row, col} for use with relative="editor".
 ---@param width integer Window width
 ---@param height integer Window height
----@param anchor FocalCursorAnchor
+---@param anchor FocalCursorAnchor  screen-absolute cursor position (1-indexed)
 ---@param col_offset integer Horizontal gap
 ---@param row_offset integer Vertical gap
 ---@param editor_cols integer Editor column count (vim.o.columns)
+---@param editor_lines integer Editor line count (vim.o.lines)
 ---@return { row: integer, col: integer }
-function M.adaptive_position(width, height, anchor, col_offset, row_offset, editor_cols)
-    local col = col_offset
-    if anchor.screen_col + width + col_offset > editor_cols then
-        col = -width - col_offset
+function M.adaptive_position(width, height, anchor, col_offset, row_offset, editor_cols, editor_lines)
+    -- Convert 1-indexed screen coords to 0-indexed editor coords.
+    local cursor_col = anchor.screen_col - 1
+    local cursor_row = anchor.screen_row - 1
+
+    -- Horizontal: prefer right of cursor, flip left if overflow.
+    local col = cursor_col + col_offset + 1 -- +1 to clear the cursor cell
+    if col + width > editor_cols then
+        col = cursor_col - width - col_offset
     end
-    local row = row_offset
-    if anchor.screen_row + height + row_offset > anchor.win_height then
-        row = -height - row_offset
+    col = math.max(0, col)
+
+    -- Vertical: prefer below cursor, flip above if overflow.
+    local row = cursor_row + row_offset
+    if row + height > editor_lines then
+        row = cursor_row - height - row_offset
     end
+    row = math.max(0, row)
+
     return { row = row, col = col }
 end
 
