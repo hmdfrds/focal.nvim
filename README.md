@@ -10,6 +10,10 @@
 
 focal.nvim is an extensible preview framework with dual backends (pixel-perfect via image.nvim, Unicode fallback via chafa) and a plugin adapter system that works with any file explorer.
 
+| image.nvim (pixel-perfect) | chafa (universal fallback) |
+|:-:|:-:|
+| ![image.nvim demo](assets/image-demo.png) | ![chafa demo](assets/chafa-demo.png) |
+
 ---
 
 ## Features
