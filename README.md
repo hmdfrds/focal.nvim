@@ -125,16 +125,39 @@ require("focal").setup({
 
 ## Custom Sources
 
-Register adapters for unsupported file explorers:
+Register adapters for unsupported file explorers. Sources can be registered before or after `setup()` — order doesn't matter:
 
 ```lua
 require("focal").register_source({
   filetype = "my_explorer",
   get_path = function()
     -- return the absolute path of the file under cursor, or nil
-    return "/path/to/image.png"
+    local node = require("my_explorer").get_current_node()
+    if node and node.type == "file" then
+      return node.absolute_path
+    end
+    return nil
   end,
 })
+```
+
+With lazy.nvim, use `opts` as normal — focal handles queuing:
+
+```lua
+{
+  "hmdfrds/focal.nvim",
+  event = "VeryLazy",
+  dependencies = { "3rd/image.nvim" },
+  opts = {},
+  init = function()
+    require("focal").register_source({
+      filetype = "my_explorer",
+      get_path = function()
+        return require("my_explorer").get_file_under_cursor()
+      end,
+    })
+  end,
+}
 ```
 
 ## Custom Renderers
