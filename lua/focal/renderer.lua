@@ -30,7 +30,10 @@ local function rebuild_ext_map()
     -- Sort each extension's renderer list by priority descending
     for _, list in pairs(ext_map) do
         table.sort(list, function(a, b)
-            return a.priority > b.priority
+            if a.priority ~= b.priority then
+                return a.priority > b.priority
+            end
+            return a.name < b.name
         end)
     end
 end

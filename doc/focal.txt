@@ -167,7 +167,7 @@ Terminals with graphics protocol support (image.nvim):
     Rio                 kitty           TERM_PROGRAM
     iTerm2              sixel           TERM_PROGRAM
     alacritty           (none)          ALACRITTY_SOCKET / TERM_PROGRAM
-    Konsole             kitty           KONSOLE_VERSION
+    Konsole             sixel           KONSOLE_DBUS_SESSION
     foot                sixel           TERM (prefix match)
     Windows Terminal    sixel           WT_SESSION
     Contour             sixel           TERMINAL_EMULATOR

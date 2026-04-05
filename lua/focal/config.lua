@@ -255,6 +255,21 @@ function M.merge(user_opts)
     if cfg.max_height_percent then
         cfg.max_height_percent = math.max(1, math.min(100, cfg.max_height_percent))
     end
+    if cfg.zindex and cfg.zindex < 1 then
+        warn("[focal] config.zindex must be >= 1, using default")
+        cfg.zindex = M.defaults.zindex
+    end
+    if cfg.debounce_ms and cfg.debounce_ms < 0 then
+        cfg.debounce_ms = 0
+    end
+    if cfg.render_timeout_ms and cfg.render_timeout_ms < 100 then
+        warn("[focal] config.render_timeout_ms must be >= 100, using default")
+        cfg.render_timeout_ms = M.defaults.render_timeout_ms
+    end
+    if cfg.max_file_size_mb and cfg.max_file_size_mb <= 0 then
+        warn("[focal] config.max_file_size_mb must be > 0, using default")
+        cfg.max_file_size_mb = M.defaults.max_file_size_mb
+    end
 
     -- Warn about unknown chafa sub-keys.
     if type(user_opts.chafa) == "table" then
@@ -291,6 +306,14 @@ function M.merge(user_opts)
     end
     if type(cfg.chafa.max_output_bytes) ~= "number" then
         warn("[focal] config.chafa.max_output_bytes must be number, using default")
+        cfg.chafa.max_output_bytes = M.defaults.chafa.max_output_bytes
+    elseif
+        cfg.chafa.max_output_bytes ~= cfg.chafa.max_output_bytes
+        or cfg.chafa.max_output_bytes == math.huge
+        or cfg.chafa.max_output_bytes == -math.huge
+        or cfg.chafa.max_output_bytes <= 0
+    then
+        warn("[focal] config.chafa.max_output_bytes is invalid, using default")
         cfg.chafa.max_output_bytes = M.defaults.chafa.max_output_bytes
     end
     if cfg.chafa.color_space ~= nil and type(cfg.chafa.color_space) ~= "string" then

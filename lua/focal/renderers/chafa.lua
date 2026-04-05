@@ -110,7 +110,7 @@ function M.render(ctx, done)
                 if line_count <= 2 then
                     -- Strip ANSI escape sequences to get visible character count.
                     -- Each chafa "pixel" is one character wide.
-                    local visible = line:gsub("\27%[[%d;]*m", "")
+                    local visible = line:gsub("\27%[[%d;]*[mB]", "")
                     local w = vim.fn.strdisplaywidth(visible)
                     if w > max_visible_width then
                         max_visible_width = w

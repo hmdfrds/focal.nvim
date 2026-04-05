@@ -9,7 +9,7 @@
 - LRU render cache for instant re-hover
 - Content swap for flicker-free image browsing
 - image.nvim (pixel-perfect) and chafa (universal fallback) renderers
-- Neo-tree, nvim-tree, oil, snacks source adapters
+- Neo-tree, nvim-tree, oil, snacks, mini.files source adapters
 - Runtime toggle (:FocalEnable/:FocalDisable/:FocalToggle)
 - Manual preview (:FocalShow [path])
 - Configurable border, winblend, zindex, title

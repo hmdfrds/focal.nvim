@@ -17,7 +17,7 @@ local terminals = {
     { env_key = "TERM_PROGRAM", value = "iTerm.app", terminal = "iTerm2", protocol = "sixel" },
     { env_key = "ALACRITTY_SOCKET", terminal = "alacritty", protocol = nil },
     { env_key = "TERM_PROGRAM", value = "Alacritty", terminal = "alacritty", protocol = nil },
-    { env_key = "KONSOLE_VERSION", terminal = "Konsole", protocol = "kitty" },
+    { env_key = "KONSOLE_DBUS_SESSION", terminal = "Konsole", protocol = "sixel" },
     { env_key = "TERM", prefix = "foot", terminal = "foot", protocol = "sixel" },
     { env_key = "WT_SESSION", terminal = "Windows Terminal", protocol = "sixel" },
     { env_key = "TERM_PROGRAM", value = "rio", terminal = "Rio", protocol = "kitty" },

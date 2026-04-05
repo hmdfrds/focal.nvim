@@ -74,7 +74,8 @@ end
 ---Uses vim.fn.screenpos() which works for both splits and floating windows.
 ---@return FocalCursorAnchor
 function PM:_create_anchor()
-    local pos = vim.fn.screenpos(0, vim.fn.line("."), vim.fn.col("."))
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local pos = vim.fn.screenpos(0, cursor[1], cursor[2] + 1)
     return {
         screen_row = pos.row,
         screen_col = pos.col,
