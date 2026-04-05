@@ -59,7 +59,7 @@ Both must pass before merging.
 focal.nvim follows a four-stage pipeline:
 
 1. **Source** — detects the file path under the cursor for a given filetype
-   (e.g. neo-tree, nvim-tree, oil, snacks). Sources export a flat
+   (e.g. neo-tree, nvim-tree, oil, snacks, mini.files). Sources export a flat
    `{ filetype, get_path }` table and are registered via
    `register_source()`.
 

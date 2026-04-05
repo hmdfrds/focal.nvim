@@ -23,8 +23,8 @@ CONTENTS                                                      *focal-contents*
 1. INTRODUCTION                                           *focal-introduction*
 
 focal.nvim provides automatic image previews in Neovim file explorers.
-Hover over a file in neo-tree, nvim-tree, oil.nvim, or snacks.nvim (picker)
-and a floating preview window appears beside the cursor.
+Hover over a file in neo-tree, nvim-tree, oil.nvim, snacks.nvim (picker),
+or mini.files and a floating preview window appears beside the cursor.
 
 Key features:
 
@@ -60,6 +60,7 @@ At least one supported file explorer:
 - nvim-tree.lua
 - oil.nvim
 - snacks.nvim (picker)
+- mini.files
 
 ==============================================================================
 3. SETUP                                                        *focal-setup*
@@ -208,7 +209,7 @@ cursor for a given filetype. To register a custom source: >lua
 Sources can be registered before or after `setup()`. Those registered
 before are queued and drained during `setup()`.
 
-Built-in sources: neo-tree, nvim-tree, oil, snacks.
+Built-in sources: neo-tree, nvim-tree, oil, snacks, mini.files.
 
 ==============================================================================
 7. CUSTOM RENDERERS                                  *focal-custom-renderers*

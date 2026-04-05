@@ -15,7 +15,7 @@ focal.nvim is an extensible preview framework with dual backends (pixel-perfect 
 ## Features
 
 - **Zero-Friction Hover** — automatically previews images when your cursor rests on them
-- **Multi-Explorer Support** — works out of the box with neo-tree, nvim-tree, oil.nvim, snacks.nvim
+- **Multi-Explorer Support** — works out of the box with neo-tree, nvim-tree, oil.nvim, snacks.nvim, mini.files
 - **Dual Backend** — pixel-perfect rendering via image.nvim on supported terminals, with automatic chafa fallback for universal Unicode/ANSI preview on any terminal
 - **Extensible Sources** — register your own adapters for unsupported file explorers
 - **Extensible Renderers** — register custom renderers for new file types (PDF, video thumbnails, etc.)

@@ -10,6 +10,7 @@ local builtin_modules = {
     "focal.sources.nvim-tree",
     "focal.sources.oil",
     "focal.sources.snacks",
+    "focal.sources.mini-files",
 }
 
 --- Validate and register a source adapter.
